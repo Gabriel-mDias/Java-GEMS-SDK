@@ -26,3 +26,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+      - name: Falha por Conflito de Versões
+        if: failure()
+        run: |
+          echo "::error::Se a falha for devido a versões dessincronizadas entre os módulos (ex: o projeto pai está na 1.1.0 e os filhos na 1.0.0), atualize todos de uma vez rodando localmente:"
+          echo "::error::mvn versions:set -DnewVersion=<NOVA_VERSAO> -DgenerateBackupPoms=false"

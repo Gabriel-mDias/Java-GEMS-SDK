@@ -111,3 +111,15 @@ gems.tenant.schema-prefix=instituicao_
 gems.tenant.client-query=SELECT DS_SIGLA_CLIENT FROM tenant_configuration.client
 gems.tenant.liquibase.changelog=db/changelog/changelog-multi-schemas.xml
 ```
+
+---
+
+## Manutenção e Versionamento do SDK
+
+Sempre que desejar realizar uma nova *release* do SDK ou evoluir a sua versão (ex: da versão `1.0.0` para a `1.1.0`), **não edite os arquivos `pom.xml` manualmente**, pois isso pode quebrar o elo de herança entre os submódulos do projeto e gerar falhas de build/compilação.
+
+Utilize o comando oficial do plugin do Maven na raiz do projeto (onde fica o `Java-GEMS-SDK`):
+```bash
+mvn versions:set -DnewVersion=<NOVA_VERSAO> -DgenerateBackupPoms=false
+```
+Esse comando irá sincronizar simultaneamente a versão em todos os arquivos de configuração do SDK, mantendo a integridade da arquitetura de múltiplos módulos de forma perfeita.
