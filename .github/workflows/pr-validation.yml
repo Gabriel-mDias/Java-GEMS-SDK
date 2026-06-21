@@ -41,7 +41,7 @@ jobs:
       - name: Configurar JDK 21 (Temurin) com cache do Maven
         # `cache: maven` reaproveita o ~/.m2 entre execuções, reduzindo
         # drasticamente o tempo de download de dependências.
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
