@@ -56,7 +56,7 @@ jobs:
         # Roda mesmo se a etapa anterior falhar, para que o resultado dos
         # testes apareça na UI do PR (não só nos logs).
         if: always()
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         with:
           name: Resultados dos Testes
           path: '**/target/surefire-reports/TEST-*.xml'
