@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout do código-fonte
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0   # histórico completo para gerar as notas de release
 
@@ -73,7 +73,7 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Criar GitHub Release com changelog automático
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: GEMS SDK ${{ github.ref_name }}
