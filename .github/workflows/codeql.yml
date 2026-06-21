@@ -39,7 +39,7 @@ jobs:
           languages: java-kotlin
 
       - name: Configurar JDK 21 (Temurin) com cache do Maven
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
