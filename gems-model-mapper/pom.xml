@@ -5,7 +5,7 @@
     <parent>
         <groupId>br.com.gems</groupId>
         <artifactId>gems-sdk</artifactId>
-        <version>1.1.0</version>
+        <version>2.0.0</version>
     </parent>
     <artifactId>gems-model-mapper</artifactId>
     <name>GEMS SDK Model Mapper</name>
@@ -14,11 +14,11 @@
         <dependency>
             <groupId>org.modelmapper</groupId>
             <artifactId>modelmapper</artifactId>
-            <version>3.2.4</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

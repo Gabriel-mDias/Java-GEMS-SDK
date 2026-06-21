@@ -1,0 +1,32 @@
+# ============================================================================
+# Dependabot
+# ----------------------------------------------------------------------------
+# Mantém as dependências da SDK atualizadas, abrindo PRs semanais para:
+#  - dependências Maven (todos os módulos a partir da raiz do reator)
+#  - as próprias GitHub Actions usadas nos workflows
+# ============================================================================
+version: 2
+updates:
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "ci"
+    commit-message:
+      prefix: "ci"

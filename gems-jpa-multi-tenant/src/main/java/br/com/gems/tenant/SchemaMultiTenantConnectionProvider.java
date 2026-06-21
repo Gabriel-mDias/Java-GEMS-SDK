@@ -52,7 +52,7 @@ public class SchemaMultiTenantConnectionProvider implements MultiTenantConnectio
         if (JpaTenantContext.DEFAULT_TENANT.equals(tenantIdentifier)) {
             connection.setSchema(JpaTenantContext.DEFAULT_TENANT);
         } else {
-            String schemaName = schemaPrefix + tenantIdentifier;
+            String schemaName = schemaPrefix + TenantIdentifierValidator.sanitize(tenantIdentifier);
             connection.setSchema(schemaName);
         }
 

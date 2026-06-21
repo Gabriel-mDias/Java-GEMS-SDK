@@ -1,3 +1,13 @@
+# ============================================================================
+# PR Validation
+# ----------------------------------------------------------------------------
+# Valida todo Pull Request direcionado à branch `main` antes do merge:
+# compila todos os módulos, roda a suíte de testes (mvn verify) e publica o
+# relatório de testes na aba "Checks" do PR. Não publica artefatos.
+#
+# Objetivo: ser o portão de qualidade da SDK — nenhum código entra na `main`
+# sem passar por build + testes verdes.
+# ============================================================================
 name: PR Validation
 
 on:
@@ -5,15 +15,59 @@ on:
     branches:
       - main
 
+# Cancela execuções antigas do mesmo PR quando um novo push é feito,
+# evitando filas e desperdício de minutos de Actions.
+concurrency:
+  group: pr-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+# Princípio do menor privilégio: validação de PR só precisa ler o código
+# e escrever o check de resultado de testes.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
-  build:
+  build-and-test:
+    name: Build & Test (JDK 21)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK 21
+      - name: Checkout do código-fonte
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (Temurin) com cache do Maven
+        # `cache: maven` reaproveita o ~/.m2 entre execuções, reduzindo
+        # drasticamente o tempo de download de dependências.
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-      - name: Validate Build
-        run: mvn --batch-mode clean install -DgenerateBackupPoms=false
+          cache: maven
+
+      - name: Build e testes (mvn verify)
+        # `verify` garante compilação + testes de todos os módulos.
+        # `--batch-mode` desliga a saída interativa; `-e` facilita o diagnóstico.
+        run: mvn --batch-mode --errors clean verify -DgenerateBackupPoms=false
+
+      - name: Publicar relatório de testes
+        # Roda mesmo se a etapa anterior falhar, para que o resultado dos
+        # testes apareça na UI do PR (não só nos logs).
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Resultados dos Testes
+          path: '**/target/surefire-reports/TEST-*.xml'
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Diagnóstico em caso de falha
+        if: failure()
+        run: |
+          echo "::error title=PR Validation falhou::O build ou os testes falharam. Causas comuns:"
+          echo "::error::1. Teste(s) quebrando — veja o check 'Resultados dos Testes' acima."
+          echo "::error::2. Erro de compilação — verifique a etapa 'Build e testes'."
+          echo "::error::3. Versões dessincronizadas entre módulos (pai vs filhos)."
+          echo "::error::   Corrija localmente: mvn versions:set -DnewVersion=<X.Y.Z> -DgenerateBackupPoms=false"

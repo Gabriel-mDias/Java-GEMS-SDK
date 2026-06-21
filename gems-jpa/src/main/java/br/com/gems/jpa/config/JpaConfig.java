@@ -1,7 +1,8 @@
 package br.com.gems.jpa.config;
 
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import br.com.gems.jpa.repository.impl.BaseCustomJpaRepositoryImpl;
@@ -13,8 +14,14 @@ import br.com.gems.jpa.repository.impl.BaseCustomJpaRepositoryImpl;
  * além de registrar o repositório base customizado ({@link BaseCustomJpaRepositoryImpl})
  * em toda a aplicação.
  * </p>
+ * <p>
+ * Ativada por {@code gems.jpa.enabled=true}. Mantida opcional porque sobrescreve a
+ * varredura de entidades/repositórios; aplicações que já declaram seu próprio
+ * {@code @EnableJpaRepositories} não devem habilitá-la para evitar conflito.
+ * </p>
  */
-@Configuration
+@AutoConfiguration
+@ConditionalOnProperty(name = "gems.jpa.enabled", havingValue = "true")
 @EntityScan(basePackages = {"${gems.jpa.base-packages:br.com.gems}"})
 @EnableJpaRepositories(
         basePackages = "${gems.jpa.base-packages:br.com.gems}",
