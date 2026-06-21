@@ -7,6 +7,7 @@ import liquibase.database.Database;
 import liquibase.database.DatabaseFactory;
 import liquibase.database.jvm.JdbcConnection;
 import liquibase.resource.ClassLoaderResourceAccessor;
+import br.com.gems.tenant.TenantIdentifierValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +45,7 @@ public class TenantSchemaService {
      * @param acronym A sigla (ou identificador único) do tenant.
      */
     public void createSchemaAndRunLiquibase(String acronym) {
-        String schemaName = schemaPrefix + acronym.trim().toLowerCase();
+        String schemaName = schemaPrefix + br.com.gems.tenant.TenantIdentifierValidator.sanitize(acronym);
         log.info("Starting schema creation and Liquibase execution for schema: {}", schemaName);
         
         try (Connection connection = dataSource.getConnection()) {

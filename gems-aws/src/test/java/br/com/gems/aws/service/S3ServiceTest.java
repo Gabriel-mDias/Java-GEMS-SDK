@@ -1,5 +1,6 @@
 package br.com.gems.aws.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,9 +16,16 @@ import br.com.gems.aws.dto.GenerateUploadUrlRequestDTO;
 import br.com.gems.aws.dto.PresignedUrlResponseDTO;
 import br.com.gems.exception.exception.BusinessException;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class S3ServiceTest {
 
@@ -78,10 +86,68 @@ class S3ServiceTest {
 
     @Test
     void deleteFile_WithoutKey_ThrowsException() {
-        BusinessException exception = assertThrows(BusinessException.class, () -> 
+        BusinessException exception = assertThrows(BusinessException.class, () ->
             s3Service.deleteFile("")
         );
 
         assertTrue(exception.getMessage().contains("A chave do arquivo (fileKey) é obrigatória para deletar o arquivo."));
+    }
+
+    @Test
+    void generatePresignedDownloadUrl_WithoutKey_ThrowsException() {
+        BusinessException exception = assertThrows(BusinessException.class, () ->
+            s3Service.generatePresignedDownloadUrl(null)
+        );
+
+        assertTrue(exception.getMessage().contains("A chave do arquivo (fileKey) é obrigatória para gerar a URL de download."));
+    }
+
+    @Test
+    void generatePresignedDownloadUrl_WithValidKey_ReturnsUrl() throws Exception {
+        PresignedGetObjectRequest presignedRequestMock = PresignedGetObjectRequest.builder()
+                .expiration(java.time.Instant.now())
+                .isBrowserExecutable(true)
+                .signedHeaders(java.util.Map.of("Host", java.util.List.of("s3.amazonaws.com")))
+                .httpRequest(software.amazon.awssdk.http.SdkHttpRequest.builder()
+                        .uri(new java.net.URI("https://s3.amazonaws.com/test-bucket/docs/file.pdf"))
+                        .method(software.amazon.awssdk.http.SdkHttpMethod.GET)
+                        .build())
+                .build();
+
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presignedRequestMock);
+
+        PresignedUrlResponseDTO response = s3Service.generatePresignedDownloadUrl("docs/file.pdf");
+
+        assertNotNull(response);
+        assertTrue(response.getUrl().contains("test-bucket"));
+        assertEquals("docs/file.pdf", response.getFileKey());
+    }
+
+    @Test
+    void generatePresignedDownloadUrl_WhenPresignerFails_ThrowsBusinessException() {
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+                .thenThrow(new RuntimeException("AWS down"));
+
+        assertThrows(BusinessException.class, () -> s3Service.generatePresignedDownloadUrl("docs/file.pdf"));
+    }
+
+    @Test
+    void fileExists_WhenObjectPresent_ReturnsTrue() {
+        when(s3Client.headObject(any(HeadObjectRequest.class))).thenReturn(HeadObjectResponse.builder().build());
+
+        assertTrue(s3Service.fileExists("docs/file.pdf"));
+    }
+
+    @Test
+    void fileExists_WhenObjectMissing_ReturnsFalse() {
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().build());
+
+        assertFalse(s3Service.fileExists("docs/missing.pdf"));
+    }
+
+    @Test
+    void fileExists_WithNullKey_ReturnsFalse() {
+        assertFalse(s3Service.fileExists(null));
     }
 }

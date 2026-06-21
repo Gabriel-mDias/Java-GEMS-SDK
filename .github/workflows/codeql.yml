@@ -1,0 +1,54 @@
+# ============================================================================
+# CodeQL Security Scan
+# ----------------------------------------------------------------------------
+# Análise estática de segurança (SAST) do código Java da SDK. Roda em pushes e
+# PRs para a `main` e semanalmente (para capturar novas regras/CVEs). Os
+# resultados aparecem na aba "Security > Code scanning" do repositório.
+# ============================================================================
+name: CodeQL
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 3 * * 1'   # toda segunda-feira às 03:00 UTC
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write   # necessário para enviar os resultados ao code scanning
+
+jobs:
+  analyze:
+    name: Analisar (Java)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout do código-fonte
+        uses: actions/checkout@v4
+
+      - name: Inicializar CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+
+      - name: Configurar JDK 21 (Temurin) com cache do Maven
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Compilar (sem testes) para o CodeQL indexar
+        run: mvn --batch-mode clean compile -DskipTests -DgenerateBackupPoms=false
+
+      - name: Executar análise CodeQL
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin"

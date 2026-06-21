@@ -1,0 +1,92 @@
+# ============================================================================
+# Release to GitHub Packages
+# ----------------------------------------------------------------------------
+# Disparado ao publicar uma tag `v*` (ex.: v2.0.0). Faz o build com testes,
+# publica os artefatos no GitHub Packages e cria um GitHub Release com notas
+# geradas automaticamente a partir dos commits/PRs desde a release anterior.
+#
+# Fluxo recomendado de release:
+#   1. mvn versions:set -DnewVersion=2.0.0 -DgenerateBackupPoms=false
+#   2. commit + push na main
+#   3. git tag v2.0.0 && git push origin v2.0.0   (dispara este workflow)
+# ============================================================================
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # necessário para criar o GitHub Release
+  packages: write   # necessário para publicar no GitHub Packages
+
+jobs:
+  release:
+    name: Build, Test, Publish & Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout do código-fonte
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # histórico completo para gerar as notas de release
+
+      - name: Configurar JDK 21 (Temurin) + autenticação no GitHub Packages
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Extrair a versão da tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verificar consistência entre a tag e a versão do projeto
+        # Falha cedo se a tag (ex.: v2.0.0) não bater com a <version> do POM raiz,
+        # evitando publicar um artefato com versão diferente da tag.
+        run: |
+          POM_VERSION=$(mvn --batch-mode -q help:evaluate -Dexpression=project.version -DforceStdout)
+          echo "Tag: ${{ steps.version.outputs.version }} | POM: ${POM_VERSION}"
+          if [ "${{ steps.version.outputs.version }}" != "${POM_VERSION}" ]; then
+            echo "::error title=Versão inconsistente::A tag v${{ steps.version.outputs.version }} difere da versão do POM (${POM_VERSION})."
+            echo "::error::Rode: mvn versions:set -DnewVersion=${{ steps.version.outputs.version }} -DgenerateBackupPoms=false, commit e re-tagueie."
+            exit 1
+          fi
+
+      - name: Build e testes (mvn verify)
+        run: mvn --batch-mode --errors clean verify -DgenerateBackupPoms=false
+
+      - name: Publicar artefatos no GitHub Packages
+        run: mvn --batch-mode deploy -DskipTests -DgenerateBackupPoms=false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Criar GitHub Release com changelog automático
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: GEMS SDK ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Diagnóstico em caso de falha
+        if: failure()
+        run: |
+          echo "::error title=Release falhou::Verifique:"
+          echo "::error::1. A tag deve seguir o padrão vX.Y.Z e bater com a versão do POM."
+          echo "::error::2. A versão não pode já ter sido publicada no GitHub Packages."
+          echo "::error::3. Permissões: contents:write (release) e packages:write (deploy)."

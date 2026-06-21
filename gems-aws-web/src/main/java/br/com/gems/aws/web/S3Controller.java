@@ -1,4 +1,4 @@
-package br.com.gems.aws.controller;
+package br.com.gems.aws.web;
 
 import br.com.gems.aws.dto.GenerateUploadUrlRequestDTO;
 import br.com.gems.aws.dto.PresignedUrlResponseDTO;

@@ -1,3 +1,13 @@
+# ============================================================================
+# Publish Snapshot to GitHub Packages
+# ----------------------------------------------------------------------------
+# Executado a cada push na branch `main`. Compila, RODA OS TESTES e publica
+# os artefatos da SDK no GitHub Packages.
+#
+# Importante: os testes NÃO são pulados aqui — código não testado não deve ser
+# publicado. Para releases versionadas (com changelog e GitHub Release), use o
+# workflow `release.yml` disparado por tags `v*`.
+# ============================================================================
 name: Publish to GitHub Packages
 
 on:
@@ -5,29 +15,57 @@ on:
     branches:
       - main
 
+# Garante um único deploy por vez na main, evitando publicações concorrentes.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   publish:
+    name: Build, Test & Publish
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK 21
+      - name: Checkout do código-fonte
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (Temurin) + autenticação no GitHub Packages
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: maven
           server-id: github
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
-      - name: Publish to GitHub Packages
-        run: mvn --batch-mode deploy -DskipTests
+
+      - name: Build e testes (mvn verify)
+        # Barreira de qualidade: nada é publicado se os testes falharem.
+        run: mvn --batch-mode --errors clean verify -DgenerateBackupPoms=false
+
+      - name: Publicar artefatos no GitHub Packages
+        # `deploy -DskipTests` aqui é seguro porque a etapa anterior já validou
+        # tudo nesta mesma execução; evitamos recompilar/retestar.
+        run: mvn --batch-mode deploy -DskipTests -DgenerateBackupPoms=false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-      - name: Falha por Conflito de Versões
+
+      - name: Sucesso
+        if: success()
+        run: echo "::notice title=Publicação concluída::Artefatos da GEMS SDK publicados no GitHub Packages."
+
+      - name: Diagnóstico em caso de falha
         if: failure()
         run: |
-          echo "::error::Se a falha for devido a versões dessincronizadas entre os módulos (ex: o projeto pai está na 1.1.0 e os filhos na 1.0.0), atualize todos de uma vez rodando localmente:"
-          echo "::error::mvn versions:set -DnewVersion=<NOVA_VERSAO> -DgenerateBackupPoms=false"
+          echo "::error title=Publicação falhou::Causas mais comuns e como resolver:"
+          echo "::error::1. Versão já publicada — o GitHub Packages não permite sobrescrever uma versão release existente."
+          echo "::error::   Suba a versão: mvn versions:set -DnewVersion=<X.Y.Z> -DgenerateBackupPoms=false"
+          echo "::error::2. Versões dessincronizadas entre o POM pai e os módulos filhos."
+          echo "::error::   Use o MESMO comando acima na raiz para alinhar todos os módulos de uma vez."
+          echo "::error::3. Autenticação: confirme que GITHUB_TOKEN tem permissão 'packages: write'."

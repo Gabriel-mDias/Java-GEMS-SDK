@@ -14,6 +14,7 @@ public class GemsModelMapperAutoConfiguration {
     public ModelMapper modelMapper() {
         ModelMapper mapper = new ModelMapper();
         ModelMapperUtils.ignoreLazyFieldsNotInitialized(mapper);
+        mapper.getConfiguration().setAmbiguityIgnored(true);
         return mapper;
     }
 }

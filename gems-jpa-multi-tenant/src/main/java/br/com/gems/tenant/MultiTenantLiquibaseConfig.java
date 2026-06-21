@@ -27,7 +27,7 @@ public class MultiTenantLiquibaseConfig implements InitializingBean {
 
     private final DataSource dataSource;
 
-    @Value("${gems.tenant.schema-prefix:instituicao_}")
+    @Value("${gems.tenant.schema-prefix:client_tenant_}")
     private String schemaPrefix;
 
     @Value("${gems.tenant.client-query}")
@@ -66,7 +66,15 @@ public class MultiTenantLiquibaseConfig implements InitializingBean {
             }
 
         } catch (Exception e) {
-            log.warn("Failed to load tenants from database. Migrations will not be applied.", e);
+            // Falha rápida: se não conseguimos listar os tenants, as migrações não serão aplicadas
+            // e o estado do banco ficaria silenciosamente inconsistente. Melhor abortar o boot.
+            throw new IllegalStateException(
+                    "Failed to load tenants from database using gems.tenant.client-query. "
+                            + "Multi-tenant Liquibase migrations cannot proceed.", e);
+        }
+
+        if (tenants.isEmpty()) {
+            log.warn("No tenants returned by gems.tenant.client-query. No tenant migrations will be applied.");
         }
         return tenants;
     }

@@ -2,10 +2,10 @@ package br.com.gems.tenant.config;
 
 import java.util.Map;
 
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import br.com.gems.tenant.SchemaMultiTenantConnectionProvider;
 import br.com.gems.tenant.TenantIdentifierResolver;
@@ -18,7 +18,7 @@ import br.com.gems.tenant.TenantIdentifierResolver;
  * caso a propriedade {@code gems.tenant.enabled} esteja habilitada ({@code true}).
  * </p>
  */
-@Configuration
+@AutoConfiguration
 @ConditionalOnProperty(name = "gems.tenant.enabled", havingValue = "true")
 public class MultiTenantJpaConfig {
 

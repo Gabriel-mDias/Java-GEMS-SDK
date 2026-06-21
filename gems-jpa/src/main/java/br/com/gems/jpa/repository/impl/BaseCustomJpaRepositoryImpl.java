@@ -8,8 +8,15 @@ import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class BaseCustomJpaRepositoryImpl<T, ID> extends SimpleJpaRepository<T, ID> implements BaseCustomJpaRepository<T> {
+
+    /**
+     * Propriedades de ordenação permitidas: apenas nomes de campos (e navegação por ponto),
+     * evitando injeção de HQL/JPQL via parâmetro {@code sort} vindo da requisição.
+     */
+    private static final Pattern SAFE_SORT_PROPERTY = Pattern.compile("^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$");
 
     private final EntityManager entityManager;
 
@@ -79,14 +86,18 @@ public class BaseCustomJpaRepositoryImpl<T, ID> extends SimpleJpaRepository<T, I
         return (List<R>) query.getResultList();
     }
 
-    private void appendOrderByInQuery(StringBuilder hql, Pageable pageable) {
+    static void appendOrderByInQuery(StringBuilder hql, Pageable pageable) {
         if (!pageable.getSort().isSorted()) {
             return;
         }
 
         hql.append( " ORDER BY " );
         pageable.getSort().forEach(order -> {
-            hql.append( order.getProperty() );
+            var property = order.getProperty();
+            if (!SAFE_SORT_PROPERTY.matcher(property).matches()) {
+                throw new IllegalArgumentException("Invalid sort property: " + property);
+            }
+            hql.append( property );
             hql.append( " " );
             hql.append( order.getDirection().name() );
             hql.append( ", " );
