@@ -1,0 +1,1091 @@
+# GEMS SDK Java — AI Context File
+
+This file is intended for AI assistants (Claude, Cursor, Copilot, Gemini, etc.) consuming this repository.
+It follows the llmstxt.org convention and is kept up-to-date with the public API surface.
+
+---
+
+## What is this
+
+GEMS SDK (`br.com.gems:gems-sdk`) is a multi-module Maven library of shared, reusable resources consumed by GEMS microservices.
+It is published as JARs to GitHub Packages — it is NOT a runnable application.
+
+- **Current version:** 2.1.0
+- **Java:** 21
+- **Spring Boot parent:** 4.1.0
+- **GroupId:** `br.com.gems`
+- **GitHub Packages URL:** `https://maven.pkg.github.com/Gabriel-mDias/Java-GEMS-SDK`
+- **Architecture:** Spring Boot starter-style auto-configuration — consumers add the dependency and optionally set a property; no `@Import` or `@ComponentScan` needed. Three modules ship no auto-configuration on purpose (`gems-mapstruct`, `gems-keycloak-admin`, `gems-security-authorization`) — see their sections.
+
+### What 2.1.0 adds and changes
+
+**Four new modules**, all additive: `gems-mapstruct`, `gems-auditing`, `gems-keycloak-admin`, `gems-security-authorization`. Nothing is deprecated anywhere in the SDK, and `gems-model-mapper` remains first-class and supported.
+
+In **fifteen of the sixteen modules** no existing public API changed signature or was removed. The exception is `gems-jpa-multi-tenant`, whose rewrite is source-incompatible — see below. Verified against the `2.0.1` baseline before release.
+
+**One module changes observable behaviour**: `gems-jpa-multi-tenant`. It is a MINOR release because that module had **zero declared consumers** at release time (re-verified immediately before publishing). The changes:
+
+1. Fail-closed by default — persisting with no tenant in context raises `TenantContextMissingException` instead of falling back to a default schema.
+2. `TenantScope` is the supported way to enter/leave a tenant; it closes on exception and restores the previous scope rather than clearing the context.
+3. One schema prefix, read in one place (`TenantSchemaNaming`), default now **`tenant_`** (was two conflicting defaults, `instituicao_` and `client_tenant_`, read in three places).
+4. Migrations run at **provisioning**; the persistence path only checks and refuses with `TenantSchemaNotReadyException`.
+5. Global scope must be explicit and requires `gems.tenant.global-schema` — there is no default.
+
+Its **public API is also source-incompatible**, which is why "additive" does not describe this module: `JpaTenantContext` is now `final` with a private constructor (was an extensible/instantiable class); its `public static final String DEFAULT_TENANT = "public"` was **removed** (fail-closed leaves no default to name); and `MultiTenantLiquibaseConfig` moved from `MultiTenantLiquibaseConfig(DataSource)` plus `@Value` fields to a four-argument constructor and is no longer a `@Component` — it is wired by configuration. Code written against `2.0.x` of this module does not compile against `2.1.0`.
+
+`gems-exception` gained a uniform error envelope and handlers for 400 (validation), 403 (`AccessDeniedException`) and 502 (external service), additively.
+
+---
+
+## Golden Rules
+
+### DO
+
+- Always use `gems-bom` to manage versions — declare one version in `<dependencyManagement>` and omit `<version>` on individual modules.
+- Activate opt-in modules via `application.yml` flags (see Property Reference below).
+- Prefer `TenantScope.forTenant(alias)` / `TenantScope.global()` (try-with-resources) over `JpaTenantContext.setCurrentTenant` / `clear`. It closes on exception and restores the previous scope, so nesting works.
+- If you do use `JpaTenantContext` directly, always clear it in a `finally` block — failure causes tenant state to leak across pooled threads.
+- Be explicit about data that belongs to no organization: open `TenantScope.global()`. Since 2.1.0 there is no silent fallback schema.
+- Use `@Mapper(config = GemsMappingConfig.class)` for new mappers (`gems-mapstruct`). `gems-model-mapper` is still supported — don't migrate working code just for this.
+- Mark audited entities with `@Auditable`, and sensitive fields with `@SensitiveField` (records that the field changed, not its values).
+- Declare authorization intent on every endpoint: `@PublicEndpoint`, `@GlobalEndpoint` or `@TenantEndpoint`.
+- Combine `@ValidCpf` / `@ValidCnpj` / `@ValidEmail` with `@NotNull` when the field is mandatory — the constraints treat `null` as valid by design.
+- Use `ApiResponseDTO.ok(data)` or `ApiResponseDTO.ok(data, message)` to wrap success responses in REST controllers.
+- Use `BusinessException` for business rule violations (HTTP 400) and `SecurityException` for auth failures (HTTP 401).
+- Use `ModelMapperUtils.mapStrict()` when you need STRICT strategy mapping to avoid ambiguity errors.
+- Use `PageResponseDTO.from(page)` to convert a Spring `Page<T>` to a serializable DTO.
+- Inject Spring beans (`S3Service`, `TenantSchemaService`, etc.) via constructor injection (`@RequiredArgsConstructor`) — never instantiate them directly.
+- To bump the SDK version: `mvn versions:set -DnewVersion=<NEW_VERSION> -DgenerateBackupPoms=false` from the repo root.
+
+### DON'T
+
+- Never edit `<version>` in any `pom.xml` manually — it breaks the inheritance chain and the CI build.
+- Never add `@Import` or `@ComponentScan` for SDK classes — they register themselves via Spring Boot auto-configuration.
+- Never instantiate `S3Service`, `GlobalExceptionHandler`, or other SDK beans directly — inject them.
+- Never forget to set `aws.s3.enabled=true` and `aws.s3.bucket-name` when adding `gems-aws`.
+- Never call `JpaTenantContext.setCurrentTenant()` without a matching `JpaTenantContext.clear()` in a `finally` block.
+- Never add `gems-jpa-multi-tenant` without also enabling `gems-jpa` (`gems.jpa.enabled=true`).
+- Never hardcode dependency versions in module poms — all third-party versions are centralized in the root `pom.xml` `<properties>`.
+- Never declare your own `@Value("${gems.tenant.schema-prefix}")`. `TenantSchemaNaming` is the single reader; a second one reintroduces the defect where migrations ran against one schema while traffic read from another, with no error anywhere.
+- Never lower `unmappedTargetPolicy` from `ERROR` to `WARN` in `gems-mapstruct`. Every compile failure it produces is a target field that would otherwise arrive null in silence.
+- Never inject an audit service into a domain service — there isn't one. `TransactionalAuditWriter` is package-private on purpose; a Hibernate `Integrator` installs the listener.
+- Never give `KeycloakAdminProperties` a default value or commit a client secret. Missing `baseUrl`, `realm`, `clientId` or `clientSecret` is rejected at construction so the environment fails at startup, not in production.
+- Never authorize by generic role (`GESTOR`). Authorization is by concrete action (`AREA_VERBO`), derived from the consumer's enum; `AuthorizationCatalog` rejects anything else.
+- Never hand-maintain the frontend action list — generate it with `FrontendActionCatalogGenerator`.
+
+---
+
+## Module Reference Table
+
+| artifactId | Purpose | Activation flag | Default |
+|---|---|---|---|
+| `gems-bom` | Bill of Materials — version alignment only | N/A | N/A |
+| `gems-utils` | Pure utility classes (date, email, document, UUID, object) | None (auto-loaded) | always on |
+| `gems-model-mapper` | Auto-configured `ModelMapper` bean — supported, not deprecated | `@ConditionalOnMissingBean` | always on |
+| `gems-mapstruct` | `GemsMappingConfig` — shared MapStruct `@MapperConfig`, **recommended for new code** | None (no auto-config) | N/A |
+| `gems-exception` | Global `@RestControllerAdvice` exception handler — uniform envelope, 400/403/502 | None (auto-loaded) | always on |
+| `gems-jpa` | Base JPA repository abstractions | `gems.jpa.enabled=true` | false |
+| `gems-jpa-multi-tenant` | Schema-per-tenant multi-tenancy (requires gems-jpa) — **fail-closed since 2.1.0** | `gems.tenant.enabled=true` | false |
+| `gems-auditing` | Hibernate-level audit trail, opt-in per entity via `@Auditable` | `gems.auditing.enabled=true` (+ `gems.auditing.schema`) | false |
+| `gems-keycloak-admin` | `KeycloakAdminGateway` — identity-provider admin operations; failures become 502 | None (no auto-config) | N/A |
+| `gems-security-authorization` | Authorization by concrete action, derived from the consumer's enum | None (no auto-config) | N/A |
+| `gems-aws` | S3 client + service beans (no web) | `aws.s3.enabled=true` | false |
+| `gems-aws-web` | Optional S3 REST endpoints | `aws.s3.enabled=true` (same flag) | false |
+| `gems-rest-common` | `ApiResponseDTO`, `PageResponseDTO`, `CorrelationIdFilter` | `gems.rest.correlation-id.enabled=true` | true |
+| `gems-validation` | `@ValidCpf`, `@ValidCnpj`, `@ValidEmail` Bean Validation constraints | None (auto-discovered via `@Constraint`) | always on |
+| `gems-openapi` | Springdoc OpenAPI auto-configuration | `gems.openapi.enabled=true` | true |
+| `gems-observability` | Registers `ObservedAspect` to enable `@Observed` | `gems.observability.enabled=true` | true |
+
+---
+
+## Maven Coordinates & BOM Usage
+
+### Step 1 — Add the repository
+
+```xml
+<repositories>
+    <repository>
+        <id>github</id>
+        <name>GitHub Packages</name>
+        <url>https://maven.pkg.github.com/Gabriel-mDias/Java-GEMS-SDK</url>
+    </repository>
+</repositories>
+```
+
+Authentication in `~/.m2/settings.xml`:
+```xml
+<servers>
+    <server>
+        <id>github</id>
+        <username>YOUR_GITHUB_USERNAME</username>
+        <password>YOUR_GITHUB_TOKEN</password>
+    </server>
+</servers>
+```
+
+### Step 2 — Import the BOM
+
+```xml
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>br.com.gems</groupId>
+            <artifactId>gems-bom</artifactId>
+            <version>2.1.0</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+
+### Step 3 — Declare modules (no version needed)
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>br.com.gems</groupId>
+        <artifactId>gems-utils</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>br.com.gems</groupId>
+        <artifactId>gems-exception</artifactId>
+    </dependency>
+    <!-- add more modules as needed -->
+</dependencies>
+```
+
+---
+
+## Per-Module API
+
+---
+
+### gems-utils
+
+**Package:** `br.com.gems.utils`
+**No Spring dependencies — pure Java.**
+
+#### DateUtil
+
+```java
+DateUtil.isValidBirthDate(LocalDate date)     // true if date is in the past
+DateUtil.isValidBirthDate(LocalDateTime date) // overload for LocalDateTime
+```
+
+#### DocumentoUtil
+
+```java
+DocumentoUtil.isDocumentoValid(String doc, TipoNumeroDocumentoEnum tipo) // generic
+DocumentoUtil.isCpfValid(String cpf)    // accepts masked (000.000.000-00) or unmasked
+DocumentoUtil.isCnpjValid(String cnpj)  // accepts masked or unmasked
+```
+
+**Enum:** `TipoNumeroDocumentoEnum` — values: `CPF`, `CNPJ`
+
+#### EmailUtil
+
+```java
+EmailUtil.isValid(String email) // regex-based format check
+```
+
+#### ObjectUtil
+
+```java
+ObjectUtil.isNullOrEmpty(Object obj)          // handles String, Collection, null
+ObjectUtil.isNotNullAndNotEmpty(Object obj)   // inverse
+```
+
+#### UUIDUtil
+
+```java
+UUIDUtil.fromStringOrNull(String id) // returns UUID or null (never throws)
+```
+
+**Other Enum:** `TipoSanguineoEnum` — blood type constants (A+, A-, B+, B-, O+, O-, AB+, AB-)
+
+---
+
+### gems-model-mapper
+
+**Package:** `br.com.gems.mapper`
+**Auto-configuration:** `GemsModelMapperAutoConfiguration` (registered automatically)
+
+Creates a single `ModelMapper` bean configured with:
+- `AmbiguityIgnored = true`
+- Lazy field detection to skip uninitialized Hibernate proxies
+
+```java
+// Static utility — no injection needed
+ModelMapperUtils.mapStrict(Object source, Class<D> destinationType) // returns D
+ModelMapperUtils.mapStrict(Object source, Object destination)       // in-place mapping
+```
+
+Consumers can override the `ModelMapper` bean by declaring their own `@Bean ModelMapper` — the SDK's is `@ConditionalOnMissingBean`.
+
+**Status: first-class and supported.** MapStruct is *recommended* for new code, not mandatory; this module is not deprecated and is not going away.
+
+---
+
+### gems-mapstruct
+
+**Package:** `br.com.gems.mapstruct`
+**Auto-configuration:** none — the module is a shared mapping configuration, not a bean
+**Activation:** none
+
+```java
+@MapperConfig(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
+public interface GemsMappingConfig {}
+```
+
+Usage — every consumer mapper references it:
+
+```java
+@Mapper(config = GemsMappingConfig.class)
+public interface OrganizacaoMapper {
+    OrganizacaoResponse toResponse(Organizacao source);
+}
+```
+
+Package convention: `<domain>/mapper/XxxMapper`. `componentModel = "spring"` means the generated mapper is an injectable bean.
+
+**`unmappedTargetPolicy = ERROR` is not to be relaxed.** A target field with no source **fails compilation**, naming the field. Adopting this in an existing project will fail builds — each failure is a field that arrives null in silence today. Lowering it to `WARN` removes the module's reason to exist; treat the fields one by one instead.
+
+**Annotation processing gotcha:** the module puts `mapstruct-processor` on the compile classpath so a consumer that declares no `annotationProcessorPaths` gets generation by discovery. A consumer that *does* declare `annotationProcessorPaths` must add `lombok-mapstruct-binding` (after Lombok) and `mapstruct-processor` (last) there. Omitting it **does not break compilation** — it silently stops generating the mapper.
+
+---
+
+### gems-exception
+
+**Package:** `br.com.gems.exception`
+**Auto-configuration:** `GemsExceptionAutoConfiguration` (registered automatically)
+
+#### Exception classes
+
+```java
+// Business rule violation → HTTP 400
+new BusinessException(ErrorTypeEnum type, String message)
+new BusinessException(String message)              // defaults to ErrorTypeEnum.FALHA
+new BusinessException(List<String> messages)       // multi-error
+
+// Authentication failure → HTTP 401
+new SecurityException(String message)
+
+// External service unavailable → HTTP 502   (2.1.0)
+new ExternalServiceException(String servico, String message)
+new ExternalServiceException(String servico, String message, Throwable causa)
+```
+
+#### ErrorTypeEnum
+
+```java
+ErrorTypeEnum.ERRO_NAO_ESPERADO  // unexpected system error (500)
+ErrorTypeEnum.FALHA              // business rule failure (400)
+ErrorTypeEnum.ALERTA             // business rule warning (400)
+ErrorTypeEnum.VALIDACAO          // validation failure (400)        (2.1.0)
+ErrorTypeEnum.ACESSO_NEGADO      // authorization denied (403)      (2.1.0)
+ErrorTypeEnum.SERVICO_INDISPONIVEL // external service down (502)   (2.1.0)
+```
+
+#### ExceptionResponseDTO (response body — the uniform envelope)
+
+```json
+{
+  "occurrenceTime": "2026-06-21T10:00:00",
+  "errorType": "FALHA",
+  "message": "CPF já cadastrado",
+  "path": "/api/usuarios",
+  "method": "POST",
+  "codigo": "CPF_DUPLICADO",
+  "detalhes": ["campo cpf: já existe"]
+}
+```
+
+`codigo` and `detalhes` were added in 2.1.0 — additively; existing fields are unchanged.
+
+#### Handlers (registered automatically)
+
+| Exception | HTTP Status |
+|---|---|
+| `BusinessException` | 400 |
+| `IllegalArgumentException` | 400 |
+| `MethodArgumentNotValidException` | 400 (2.1.0) |
+| `SecurityException` | 401 |
+| `BadCredentialsException`, `AuthorizationDeniedException` | 401 (`SecurityExceptionHandler`) |
+| `AccessDeniedException` | **403** (2.1.0 — `AuthorizationExceptionHandler`) |
+| `ExternalServiceException` | **502** (2.1.0) |
+| `Exception` (catch-all) | 500 |
+
+403, not 401, for `AccessDeniedException`: whoever reached the handler is authenticated; what is missing is authorization.
+
+---
+
+### gems-jpa
+
+**Package:** `br.com.gems.jpa`
+**Auto-configuration:** `JpaConfig`
+**Activation:** `gems.jpa.enabled=true`
+**Property:** `gems.jpa.base-packages` (default: `br.com.gems`)
+
+#### BaseCustomJpaRepository<T> — interface to extend
+
+```java
+// COUNT queries
+Long executeCountHql(StringBuilder hql)
+Long executeCountHql(StringBuilder hql, Map<String, Object> params)
+
+// SELECT queries
+<R> List<R> executeHql(StringBuilder hql, Class<R> clazz)
+<R> List<R> executeHql(StringBuilder hql, Map<String, Object> params, Class<R> clazz)
+<R> Page<R>  executeHql(StringBuilder hql, Pageable pageable, Class<R> clazz)
+<R> Page<R>  executeHql(StringBuilder hql, Map<String, Object> params, Pageable pageable, Class<R> clazz)
+
+// Native SQL
+<R> List<R> executeNativeQuery(StringBuilder sql, Class<R> clazz)
+<R> List<R> executeNativeQuery(StringBuilder sql, Map<String, Object> params, Class<R> clazz)
+```
+
+```yaml
+# application.yml
+gems:
+  jpa:
+    enabled: true
+    base-packages: br.com.seuprojeto
+```
+
+#### Canonical Repository Pattern
+
+The correct pattern for GEMS repositories is a **single interface** that:
+1. Extends both `JpaRepository<Entity, ID>` and `BaseCustomJpaRepository<Entity>`
+2. Declares Spring Data derived-query methods (`findBy*`, `existsBy*`, etc.)
+3. Contains `default` methods for complex searches that delegate to `private` HQL builder methods
+4. Uses `ObjectUtil.isNotNullAndNotEmpty()` to guard dynamic filter parameters
+
+```java
+@Repository
+public interface PedidoRepository extends JpaRepository<Pedido, UUID>, BaseCustomJpaRepository<Pedido> {
+
+    // Spring Data derived queries — declared normally
+    Optional<Pedido> findByClienteIdAndStatus(UUID clienteId, StatusPedidoEnum status);
+    boolean existsByClienteIdAndDataCancelamentoIsNull(UUID clienteId);
+
+    // Public search entry point — builds the Page from count + query
+    default Page<PedidoResponseDTO> search(PedidoFilterParams filterParams, Pageable pageable) {
+        return new PageImpl<>(
+            searchQuery(filterParams, pageable),
+            pageable,
+            countQuery(filterParams)
+        );
+    }
+
+    // Private count query — always mirrors the WHERE clause of searchQuery
+    private Long countQuery(PedidoFilterParams filterParams) {
+        var hql = new StringBuilder();
+        var params = new HashMap<String, Object>();
+
+        hql.append(" SELECT count(p.id) ");
+        hql.append(" FROM Pedido p ");
+        hql.append(" JOIN p.cliente c ");
+
+        appendFilters(filterParams, hql, params);
+
+        return this.executeCountHql(hql, params);
+    }
+
+    // Private data query — uses HQL constructor expression to map directly to DTO
+    private List<PedidoResponseDTO> searchQuery(PedidoFilterParams filterParams, Pageable pageable) {
+        var hql = new StringBuilder();
+        var params = new HashMap<String, Object>();
+
+        hql.append(" SELECT new br.com.seuprojeto.dto.PedidoResponseDTO( ");
+        hql.append("   p.id, ");
+        hql.append("   c.id, ");
+        hql.append("   c.nome, ");
+        hql.append("   p.status ) ");
+        hql.append(" FROM Pedido p ");
+        hql.append(" JOIN p.cliente c ");
+
+        appendFilters(filterParams, hql, params);
+
+        return this.executeHql(hql, params, pageable, PedidoResponseDTO.class);
+    }
+
+    // Private filter builder — shared by count and data queries
+    private void appendFilters(PedidoFilterParams filterParams, StringBuilder hql, HashMap<String, Object> params) {
+        hql.append(" WHERE 1=1 ");
+
+        if (ObjectUtil.isNotNullAndNotEmpty(filterParams.getClienteNome())) {
+            hql.append(" AND LOWER(c.nome) LIKE :clienteNome ");
+            params.put("clienteNome", "%" + filterParams.getClienteNome().toLowerCase() + "%");
+        }
+
+        if (ObjectUtil.isNotNullAndNotEmpty(filterParams.getStatus())) {
+            hql.append(" AND p.status = :status ");
+            params.put("status", filterParams.getStatus());
+        }
+    }
+}
+```
+
+**Key rules for this pattern:**
+- `countQuery` and `searchQuery` must share the exact same `appendFilters` call — never diverge their WHERE clauses.
+- Always use `WHERE 1=1` so `AND` conditions can be appended unconditionally.
+- Use HQL constructor expressions (`SELECT new br.com.pacote.DTO(...)`) to map query results directly to DTOs without an extra mapping step.
+- Use `LOWER(field) LIKE :param` with `toLowerCase()` on the value for case-insensitive text searches.
+- Guard every dynamic filter with `ObjectUtil.isNotNullAndNotEmpty()` — never append a filter for a null/empty value.
+
+#### Service layer usage
+
+The service delegates to the repository `search` method and uses `ObjectUtil` for null guards before repository calls:
+
+```java
+@Service
+@RequiredArgsConstructor
+public class PedidoService {
+
+    private final ModelMapper mapper;
+    private final PedidoRepository repository;
+
+    public Page<PedidoResponseDTO> search(PedidoFilterParams filterParams, Pageable pageable) {
+        return repository.search(filterParams, pageable);
+    }
+
+    public PedidoDTO findById(UUID id) {
+        if (ObjectUtil.isNullOrEmpty(id)) {
+            throw new BusinessException("O id do pedido não foi informado!");
+        }
+        Pedido entity = repository.findById(id)
+            .orElseThrow(() -> new BusinessException("Pedido não encontrado!"));
+        return mapper.map(entity, PedidoDTO.class);
+    }
+}
+```
+
+---
+
+### gems-jpa-multi-tenant
+
+**Package:** `br.com.gems.tenant` (config in `br.com.gems.tenant.config`)
+**Auto-configuration:** `MultiTenantJpaConfig` — every bean is `@ConditionalOnMissingBean`, so the consumer can replace any of them
+**Activation:** `gems.tenant.enabled=true` (also requires `gems.jpa.enabled=true`)
+
+> **BEHAVIOUR CHANGED IN 2.1.0.** See "What 2.1.0 adds and changes" at the top of this file before upgrading a project that used 2.0.x.
+
+#### TenantScope — the supported way to enter and leave a tenant
+
+```java
+TenantScope.forTenant(String alias)              // AutoCloseable; alias cannot be "__global__"
+TenantScope.global()                             // declared global scope
+TenantScope.runInTenant(String alias, Runnable)
+TenantScope.runInGlobal(Runnable)
+TenantScope.callInTenant(String alias, Supplier<T>) // returns T
+TenantScope.callInGlobal(Supplier<T>)               // returns T
+scope.close()                                    // restores the PREVIOUS scope, not "no scope"
+```
+
+```java
+try (TenantScope scope = TenantScope.forTenant("acme")) {
+    repository.save(enrolment);
+}
+
+try (TenantScope scope = TenantScope.global()) {   // data that belongs to no organization
+    repository.save(systemSetting);
+}
+```
+
+Two guarantees: it closes even if the body throws, and closing **restores the previous scope** — without that, a global scope opened inside a tenant operation would leave the outer operation with no context on return.
+
+#### JpaTenantContext — ThreadLocal context holder (lower-level)
+
+```java
+JpaTenantContext.GLOBAL_TENANT_IDENTIFIER        // "__global__"
+JpaTenantContext.setCurrentTenant(String alias)  // rejects "__global__" — use TenantScope.global()
+JpaTenantContext.getCurrentTenant()              // alias, or GLOBAL_TENANT_IDENTIFIER in global scope
+                                                 // THROWS TenantContextMissingException with no scope
+JpaTenantContext.current()                       // Optional<Snapshot>, does not throw
+JpaTenantContext.clear()                         // MUST be called in finally block
+record Snapshot(String alias, boolean global)    // global XOR alias — never both, never neither
+```
+
+`getCurrentTenant()` no longer falls back to a default schema. Absence of context is an error (MT-1); global is a scope somebody wrote.
+
+#### Exceptions
+
+```java
+TenantContextMissingException   // no scope installed at persistence time
+TenantSchemaNotReadyException   // schema exists in config but was not migrated at provisioning
+TenantAliasConflictException    // alias resolution found a conflict
+TenantMigrationException        // migration failed at provisioning
+```
+
+#### TenantSchemaNaming — the single source of the schema name
+
+```java
+TenantSchemaNaming.DEFAULT_SCHEMA_PREFIX          // "tenant_"
+```
+
+Reads `gems.tenant.schema-prefix` and `gems.tenant.global-schema`, and is the **only** place that does. Do not declare your own `@Value` for either. Asking for global scope without `gems.tenant.global-schema` fails instead of picking a schema by omission.
+
+#### TenantSchemaService — tenant provisioning (this is where migrations run)
+
+```java
+// Injected as Spring bean
+tenantSchemaService.createSchemaAndRunLiquibase(String acronym)
+// Creates schema (e.g. "tenant_sigla") and runs Liquibase migrations
+```
+
+`TenantMigrationCoordinator` applies migrations at provisioning. The persistence path only **verifies** and refuses with `TenantSchemaNotReadyException` — running DDL in a request path would charge the first request of each organization for the migration and race between concurrent requests.
+
+#### TenantIdentifierValidator — SQL injection guard (internal)
+
+Called automatically before composing schema SQL. Tenant identifiers must be alphanumeric + underscore only.
+
+#### Configuration
+
+```yaml
+gems:
+  jpa:
+    enabled: true
+    base-packages: br.com.seuprojeto
+  tenant:
+    enabled: true
+    schema-prefix: tenant_          # default since 2.1.0
+    global-schema: administracao    # no default; TenantScope.global() fails without it
+    client-query: SELECT DS_SIGLA_CLIENT FROM tenant_configuration.client
+    liquibase:
+      changelog: db/changelog/changelog-multi-schemas.xml
+```
+
+#### Canonical TenantFilter pattern (implement in consumer app)
+
+Preserved, and correct only because of the `finally`. `TenantScope` gives the same guarantee without depending on discipline.
+
+```java
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class TenantFilter extends OncePerRequestFilter {
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwt) {
+            String tenant = (String) jwt.getToken().getClaim("organization");
+            if (tenant != null && !tenant.isBlank()) {
+                JpaTenantContext.setCurrentTenant(tenant.toLowerCase());
+            }
+        }
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            JpaTenantContext.clear(); // ALWAYS clear in finally
+        }
+    }
+}
+```
+
+---
+
+### gems-auditing
+
+**Package:** `br.com.gems.auditing`
+**Auto-configuration:** `AuditingAutoConfiguration`
+**Activation:** `gems.auditing.enabled=true` **and** `gems.auditing.schema` (mandatory, no default)
+
+Opt-in twice: the property enables the module, and each entity opts in.
+
+```java
+@Documented @Inherited @Target(TYPE) @Retention(RUNTIME)
+public @interface Auditable {}      // opts the entity into the trail; inherited by subclasses
+
+public @interface SensitiveField {} // records THAT the field changed, never its values
+```
+
+```java
+public record AuditActor(String name, AuditActorType type) {}
+public enum AuditActorType { USUARIO, TECNICO }
+public enum AuditOperation { INSERT, UPDATE, DELETE }
+public record AuditChange(String field, String oldValue, String newValue, boolean sensitive) {}
+public class AuditWriteException extends RuntimeException {}
+```
+
+Extension points, both `@ConditionalOnMissingBean`:
+
+```java
+public interface AuditActorProvider { AuditActor currentActor(); }
+// default: SystemAuditActorProvider — actor "SISTEMA". Replace it to record the authenticated user.
+
+public interface AuditTrailDestination { String schemaFor(String entityName); }
+// default: FixedSchemaAuditTrailDestination, reading gems.auditing.schema.
+// Replace it to route the trail per organization.
+```
+
+**The domain never calls the writer.** `AuditHibernateIntegrator` installs `HibernateAuditListener`; `TransactionalAuditWriter` and the listener are package-private, and an architecture test asserts that nothing outside the module reaches the writer. Do not generate code that injects an audit service into a domain service — there is none to inject.
+
+`gems.auditing.schema` has no built-in default on purpose: a default would make the SDK choose, by omission, between writing the trail next to the organization's data and writing it to a global schema — the one decision it must not take for the consumer.
+
+```yaml
+gems:
+  auditing:
+    enabled: true
+    schema: auditoria
+```
+
+---
+
+### gems-keycloak-admin
+
+**Package:** `br.com.gems.keycloak.admin`
+**Auto-configuration:** none — the consumer declares the bean
+**Activation:** none
+
+```java
+public interface KeycloakAdminGateway {
+    record User(String id, String name, String username, String email, boolean enabled) {}
+
+    String ensureOrganization(String alias, String displayName);   // creates if absent
+    void updateOrganization(String organizationId, String displayName);
+    Optional<User> findUserByEmail(String email);
+    User createUser(String name, String username, String email, String password);
+    String ensureGroup(String organizationId, String groupName);   // group name is a PARAMETER
+    void ensureRealmRoleOnGroup(String organizationId, String groupId, String role);
+    void addOrganizationMember(String organizationId, String userId);
+    void addGroupMember(String organizationId, String groupId, String userId);
+    void removeGroupMember(String organizationId, String groupId, String userId);
+}
+
+public record KeycloakAdminProperties(String baseUrl, String realm, String clientId,
+        String clientSecret, Duration connectTimeout, Duration readTimeout) {}
+
+public final class KeycloakAdminRestClient implements KeycloakAdminGateway {
+    public KeycloakAdminRestClient(RestClient client, KeycloakAdminProperties properties) {}
+}
+
+public class KeycloakAdminException extends RuntimeException {}
+```
+
+```java
+@Bean
+KeycloakAdminGateway keycloakAdminGateway(/* your own config binding */) {
+    var props = new KeycloakAdminProperties(baseUrl, realm, clientId, clientSecret,
+            Duration.ofSeconds(5), Duration.ofSeconds(10));
+    return new KeycloakAdminRestClient(RestClient.builder().baseUrl(props.baseUrl()).build(), props);
+}
+```
+
+**No field has a default, and no secret lives in code.** `KeycloakAdminProperties` rejects a missing or blank `baseUrl`, `realm`, `clientId` or `clientSecret` **at construction**, so an unconfigured environment fails at startup — where failing costs least — instead of running pointed at the wrong realm.
+
+**Every failure leaves as `KeycloakAdminException`**, naming the operation and preserving the cause, and therefore becomes **502** in the `gems-exception` envelope. Letting an HTTP client exception escape would deliver a third party's unavailability to the consumer as a 500.
+
+The technical token is obtained via `client_credentials` and cached in memory until near expiry; a 401 invalidates the cache and the call is retried **exactly once**.
+
+---
+
+### gems-security-authorization
+
+**Package:** `br.com.gems.security.authorization`
+**Auto-configuration:** none — the action enum belongs to the consumer
+**Activation:** none
+
+Authorization is by **concrete action**, never by generic role.
+
+```java
+public interface AuthorizationAction {
+    String name();                 // format AREA_VERB — an enum already provides it
+    AuthorizationScope scope();
+}
+public enum AuthorizationScope { GLOBAL, TENANT }
+
+public record AuthorizationCatalog(Set<String> globalActions, Set<String> tenantActions) {
+    static <E extends Enum<E> & AuthorizationAction> AuthorizationCatalog of(Class<E> actions);
+}
+```
+
+The canonical form is `AuthorizationCatalog.of(<enum>)`: a mistyped action does not compile. Actions must match `^[A-Z][A-Z0-9]*_[A-Z0-9_]+$` (a bare `GESTOR` is rejected), and the global and tenant sets must be disjoint. The canonical constructor stays public for synthetic catalogues in tests and for loading actions from another source — validation is identical on both paths.
+
+**Endpoint intent annotations** — `@PublicEndpoint`, `@GlobalEndpoint`, `@TenantEndpoint`.
+
+```java
+public final class EndpointAuthorizationScan {
+    record Violation(String endpoint, String reason) {}
+    static List<Violation> scan(RequestMappingHandlerMapping mapping, AuthorizationCatalog catalog);
+    static List<Violation> scan(Collection<HandlerMethod> methods, AuthorizationCatalog catalog);
+    static void assertProtected(RequestMappingHandlerMapping mapping, AuthorizationCatalog catalog);
+    static void assertProtected(Collection<HandlerMethod> methods, AuthorizationCatalog catalog);
+}
+// assertProtected throws UnprotectedEndpointException. Wire it into a test so the build fails
+// on an unmarked endpoint — there is no silent default.
+```
+
+```java
+public interface AuthorizationContextAware { JwtAuthorizationContext authorizationContext(); }
+public final class TenantAuthorizationInterceptor implements HandlerInterceptor {}
+```
+
+`TenantAuthorizationInterceptor` **fails closed** on a `@TenantEndpoint`: authentication that does not implement `AuthorizationContextAware`, absent authentication, or a context with no alias all refuse. The refusal is `AccessDeniedException`, which `gems-exception` returns as **403** — not 401: whoever got there is authenticated; what is missing is scope, and sending them to login would fix nothing.
+
+**The frontend action list is generated, not maintained:**
+
+```java
+public final class FrontendActionCatalogGenerator {
+    static <E extends Enum<E> & AuthorizationAction> String generate(Class<E> actions);
+    static <E extends Enum<E> & AuthorizationAction> void writeTo(Path target, Class<E> actions);
+    static <E extends Enum<E> & AuthorizationAction> void verify(Path target, Class<E> actions);
+    // verify throws GeneratedCatalogOutOfDateException
+}
+// Output: {"global": [...], "tenant": [...]}, sorted, fixed format — so two runs over the same
+// enum produce identical files and verify() does not report drift where there is none.
+```
+
+Wire `verify` into a test or the build. From then on the frontend list is a **consequence** of the enum, not a third copy kept in parity by hand.
+
+---
+
+### gems-aws
+
+**Package:** `br.com.gems.aws`
+**Auto-configuration:** `GemsAwsAutoConfiguration`
+**Activation:** `aws.s3.enabled=true`
+
+#### S3Service — injected as Spring bean
+
+```java
+// Generate a temporary pre-signed PUT URL for direct client upload
+PresignedUrlResponseDTO generatePresignedUploadUrl(GenerateUploadUrlRequestDTO request)
+
+// Generate a temporary pre-signed GET URL for download
+PresignedUrlResponseDTO generatePresignedDownloadUrl(String fileKey)
+
+// Delete a file permanently
+void deleteFile(String fileKey)
+
+// Check if a file exists (HEAD request — no download)
+boolean fileExists(String fileKey)
+```
+
+#### DTOs
+
+```java
+// Request
+GenerateUploadUrlRequestDTO {
+    String fileName;       // required
+    String contentType;    // required (e.g. "image/jpeg")
+    String directory;      // optional — prefix within the bucket
+}
+
+// Response (both upload and download)
+PresignedUrlResponseDTO {
+    String url;     // pre-signed URL
+    String fileKey; // full key in the bucket (use for download/delete)
+}
+```
+
+#### Configuration
+
+```yaml
+aws:
+  s3:
+    enabled: true
+    region: us-east-1          # required
+    bucket-name: my-bucket     # required
+    access-key: ...            # optional; falls back to IAM role
+    secret-key: ...            # optional; falls back to IAM role
+    endpoint-url: ...          # optional; for LocalStack / MinIO
+    presigned-url-expiration-minutes: 15  # default: 15
+```
+
+---
+
+### gems-aws-web
+
+**Package:** `br.com.gems.aws.web`
+**Auto-configuration:** `GemsAwsWebAutoConfiguration`
+**Activation:** `aws.s3.enabled=true` (same flag as gems-aws) + servlet web app required
+
+Registers `S3Controller` at `/api/aws/s3`:
+
+| Method | Path | Body / Param | Response |
+|---|---|---|---|
+| POST | `/api/aws/s3/generate-upload-url` | `GenerateUploadUrlRequestDTO` | `PresignedUrlResponseDTO` |
+| GET | `/api/aws/s3/generate-download-url` | `?fileKey=...` | `PresignedUrlResponseDTO` |
+| DELETE | `/api/aws/s3/delete-file` | `?fileKey=...` | 204 No Content |
+
+Add `gems-aws-web` only if you want these endpoints exposed. Use `gems-aws` alone if you want only the service bean.
+
+---
+
+### gems-rest-common
+
+**Package:** `br.com.gems.rest`
+**Auto-configuration:** `GemsRestCommonAutoConfiguration`
+**Activation:** `gems.rest.correlation-id.enabled=true` (default: true, servlet apps only)
+
+#### ApiResponseDTO<T>
+
+```java
+// Static factories
+ApiResponseDTO.ok(T data)
+ApiResponseDTO.ok(T data, String message)
+
+// Fields
+boolean success;   // always true
+String message;
+T data;
+LocalDateTime timestamp;
+```
+
+#### PageResponseDTO<T>
+
+```java
+// Static factory
+PageResponseDTO.from(Page<T> page)  // converts Spring Page to serializable DTO
+
+// Fields
+List<T> content;
+int page;
+int size;
+long totalElements;
+int totalPages;
+boolean first;
+boolean last;
+```
+
+#### CorrelationIdFilter (registered automatically)
+
+- Reads `X-Correlation-Id` request header or generates a UUID
+- Puts the value in SLF4J MDC under key `correlationId`
+- Returns the value in the `X-Correlation-Id` response header
+- Clears MDC in `finally`
+
+---
+
+### gems-validation
+
+**Package:** `br.com.gems.validation`
+**No auto-configuration needed** — discovered by Jakarta Bean Validation via `@Constraint`.
+
+```java
+// Annotations — apply to String fields
+@ValidCpf    // message: "CPF inválido"
+@ValidCnpj   // message: "CNPJ inválido"
+@ValidEmail  // message: "E-mail inválido"
+```
+
+All three constraints treat `null` as **valid**. Always combine with `@NotNull` if the field is required:
+
+```java
+public class CadastroDTO {
+    @NotNull
+    @ValidCpf
+    private String cpf;
+
+    @NotNull
+    @ValidEmail
+    private String email;
+}
+```
+
+---
+
+### gems-openapi
+
+**Package:** `br.com.gems.openapi`
+**Auto-configuration:** `GemsOpenApiAutoConfiguration`
+**Activation:** `gems.openapi.enabled=true` (default: true)
+**Classpath requirement:** `springdoc-openapi-starter-webmvc-ui` must be present
+
+```yaml
+gems:
+  openapi:
+    enabled: true
+    title: "Minha API"
+    description: "Descrição da API"
+    version: "v1"
+    contact-name: "Time GEMS"
+    contact-email: "gems@exemplo.com"
+```
+
+Creates a single `OpenAPI` bean. Consumer can override with their own `@Bean OpenAPI`.
+
+---
+
+### gems-observability
+
+**Package:** `br.com.gems.observability`
+**Auto-configuration:** `GemsObservabilityAutoConfiguration`
+**Activation:** `gems.observability.enabled=true` (default: true)
+**Requirements:** `ObservationRegistry` bean must be present (from `spring-boot-starter-actuator`)
+
+Registers `ObservedAspect`, enabling the `@Observed` annotation on Spring-managed bean methods:
+
+```java
+@Observed(name = "usuario.buscar")
+public Usuario buscarPorId(UUID id) { ... }
+```
+
+---
+
+## Common Patterns
+
+### Exception handling in a service
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UsuarioService {
+
+    public Usuario buscar(UUID id) {
+        return usuarioRepository.findById(id)
+            .orElseThrow(() -> new BusinessException("Usuário não encontrado"));
+    }
+
+    public void validarAcesso(String token) {
+        if (!tokenValido(token)) {
+            throw new SecurityException("Token inválido ou expirado");
+        }
+    }
+}
+```
+
+### REST controller with response envelopes
+
+```java
+@RestController
+@RequestMapping("/api/usuarios")
+@RequiredArgsConstructor
+public class UsuarioController {
+
+    private final UsuarioService usuarioService;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponseDTO<UsuarioDTO>> buscar(@PathVariable UUID id) {
+        UsuarioDTO dto = usuarioService.buscar(id);
+        return ResponseEntity.ok(ApiResponseDTO.ok(dto));
+    }
+
+    @GetMapping
+    public ResponseEntity<PageResponseDTO<UsuarioDTO>> listar(Pageable pageable) {
+        Page<UsuarioDTO> page = usuarioService.listar(pageable);
+        return ResponseEntity.ok(PageResponseDTO.from(page));
+    }
+}
+```
+
+### S3 upload flow
+
+```java
+@Service
+@RequiredArgsConstructor
+public class DocumentoService {
+
+    private final S3Service s3Service;
+
+    public PresignedUrlResponseDTO gerarUrlUpload(String fileName, String contentType) {
+        var request = GenerateUploadUrlRequestDTO.builder()
+            .fileName(fileName)
+            .contentType(contentType)
+            .directory("documentos/")
+            .build();
+        return s3Service.generatePresignedUploadUrl(request);
+    }
+}
+```
+
+### ModelMapper strict mapping
+
+```java
+@Service
+@RequiredArgsConstructor
+public class UsuarioService {
+
+    public UsuarioDTO toDTO(Usuario entity) {
+        return ModelMapperUtils.mapStrict(entity, UsuarioDTO.class);
+    }
+}
+```
+
+### Custom HQL repository
+
+```java
+@Repository
+public interface UsuarioRepository extends JpaRepository<Usuario, UUID>,
+                                           BaseCustomJpaRepository<Usuario> {
+
+    default Page<UsuarioDTO> buscarAtivos(Pageable pageable) {
+        var hql = new StringBuilder("SELECT u FROM Usuario u WHERE u.ativo = true");
+        return this.executeHql(hql, pageable, UsuarioDTO.class);
+    }
+}
+
+@Service
+@RequiredArgsConstructor
+public class UsuarioService {
+
+    private final UsuarioRepository usuarioRepository;
+
+    public Page<UsuarioDTO> buscarAtivos(Pageable pageable) {
+        return usuarioRepository.buscarAtivos( pageable );
+    }
+}
+```
+
+---
+
+## Property Reference (all activation flags)
+
+```yaml
+# gems-jpa (default: false — prevents conflict with app's @EnableJpaRepositories)
+gems:
+  jpa:
+    enabled: true
+    base-packages: br.com.seuprojeto   # package to scan for JPA entities/repos
+
+# gems-jpa-multi-tenant (default: false)
+  tenant:
+    enabled: true
+    schema-prefix: tenant_          # default since 2.1.0; read ONLY by TenantSchemaNaming
+    global-schema: administracao    # no default; TenantScope.global() fails without it
+    client-query: SELECT DS_SIGLA_CLIENT FROM tenant_configuration.client
+    liquibase:
+      changelog: db/changelog/changelog-multi-schemas.xml
+
+# gems-auditing (default: false)
+  auditing:
+    enabled: true
+    schema: auditoria               # MANDATORY, no default — the app will not start without it
+
+# gems-mapstruct, gems-keycloak-admin, gems-security-authorization: no properties,
+# no auto-configuration. The consumer declares the beans.
+
+# gems-aws / gems-aws-web (default: false)
+aws:
+  s3:
+    enabled: true
+    region: us-east-1
+    bucket-name: meu-bucket
+    access-key: AKIAIOSFODNN7EXAMPLE     # optional
+    secret-key: wJalrXUtnFEMI/K7MDENG   # optional
+    endpoint-url: http://localhost:4566  # optional (LocalStack/MinIO)
+    presigned-url-expiration-minutes: 15 # optional, default: 15
+
+# gems-rest-common (default: true)
+gems:
+  rest:
+    correlation-id:
+      enabled: true
+
+# gems-openapi (default: true)
+  openapi:
+    enabled: true
+    title: "Minha API"
+    description: "Descrição da API"
+    version: "v1"
+    contact-name: "Time GEMS"
+    contact-email: "contato@exemplo.com"
+
+# gems-observability (default: true)
+  observability:
+    enabled: true
+```

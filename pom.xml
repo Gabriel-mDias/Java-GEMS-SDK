@@ -103,6 +103,45 @@
     </distributionManagement>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <!--
+                    O piso de observabilidade dos módulos de 2.1.0 é log estruturado, e nada além
+                    disso (FR-017). Quem quiser métrica traz gems-observability por conta própria;
+                    nenhum dos quatro módulos novos pode arrastá-lo, nem por transitividade — senão
+                    adotar auditoria passaria a significar adotar Micrometer sem ter pedido.
+
+                    A regra mora aqui, ativada por um bloco de quatro linhas em cada módulo que a
+                    ela se submete. gems-observability, obviamente, não a ativa.
+                -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>piso-de-observabilidade</id>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <bannedDependencies>
+                                        <searchTransitive>true</searchTransitive>
+                                        <excludes>
+                                            <exclude>br.com.gems:gems-observability</exclude>
+                                        </excludes>
+                                        <message>
+                                            FR-017: este módulo não pode depender de
+                                            gems-observability, nem transitivamente.
+                                        </message>
+                                    </bannedDependencies>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

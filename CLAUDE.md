@@ -75,7 +75,9 @@ Third-party versions are centralized in the root `pom.xml` `<dependencyManagemen
 
 Schema-per-tenant isolation built on Hibernate's `MultiTenantConnectionProvider` / `CurrentTenantIdentifierResolver`, wired through `HibernatePropertiesCustomizer`.
 
-> **2.1.0 changes observable behaviour here.** It is a MINOR release because the module had **zero declared consumers** at release time (re-verified immediately before publishing). Read this section before upgrading if that ever stops being true.
+> **2.1.0 changes observable behaviour here, and breaks source compatibility.** It is a MINOR release because the module had **zero declared consumers** at release time (re-verified immediately before publishing). Read this section before upgrading if that ever stops being true.
+>
+> The API breaks, and this is the one place in the SDK where it does: `JpaTenantContext` is now `final` with a private constructor; its `public static final String DEFAULT_TENANT` was **removed** (failing closed leaves no default to name); `MultiTenantLiquibaseConfig` takes four constructor arguments instead of one and is no longer a `@Component`. Code written against `2.0.x` of this module does not compile against `2.1.0`.
 
 - **Fail-closed is the default (MT-1).** A persistence operation with no tenant in context now raises `TenantContextMissingException` instead of silently falling back to a default schema. Data that genuinely belongs to no organization must say so explicitly, via a global scope.
 - **`TenantScope` is the supported way to enter and leave a tenant.** It closes in a `finally` even when the body throws, and closing **restores the previous scope** rather than clearing the context, so nesting a global scope inside a tenant operation does not strand the outer one. `JpaTenantContext.setCurrentTenant`/`clear` still exist and still leave the discipline to the caller.

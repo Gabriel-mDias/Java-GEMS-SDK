@@ -93,7 +93,9 @@ Em seguida, importe qualquer pacote:
 
 > ### ⚠️ O que mudou na 2.1.0
 >
-> Este módulo **muda de comportamento** nesta versão. A versão é MINOR porque, na data da publicação, ele tinha **zero consumidores declarados** — condição reverificada imediatamente antes do release. Se isso deixar de ser verdade, leia esta lista antes de subir de versão.
+> Este módulo **muda de comportamento e quebra compilação** nesta versão. A versão é MINOR porque, na data da publicação, ele tinha **zero consumidores declarados** — condição reverificada imediatamente antes do release. Se isso deixar de ser verdade, leia esta lista antes de subir de versão.
+>
+> **A API pública também quebra**, e este é o único módulo da SDK onde isso acontece: `JpaTenantContext` agora é `final` com construtor privado; a constante `DEFAULT_TENANT` foi **removida** (falhar fechado não deixa padrão para nomear); `MultiTenantLiquibaseConfig` passou de um para quatro argumentos de construtor e **não é mais `@Component`**. Código escrito contra a `2.0.x` deste módulo não compila na `2.1.0`.
 >
 > 1. **Falha fechada é o padrão.** Persistir sem tenant no contexto agora lança `TenantContextMissingException` em vez de cair silenciosamente num schema padrão. Dado que realmente não pertence a organização alguma precisa dizer isso explicitamente, abrindo um escopo global.
 > 2. **`TenantScope` é a forma suportada de entrar e sair de um tenant.** Ele fecha mesmo que o corpo lance, e o fechamento **restaura o escopo anterior** em vez de apagar o contexto — sem isso, um escopo global aninhado dentro de uma operação de organização deixaria a operação de fora sem contexto ao voltar. `JpaTenantContext.setCurrentTenant`/`clear` continuam existindo, com a disciplina por conta de quem chama.

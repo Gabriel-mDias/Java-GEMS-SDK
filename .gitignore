@@ -53,3 +53,8 @@ bin/
 # Scripts gerados por IA
 *.py
 *.txt
+
+# ...menos o llms.txt, que é documentação de referência da SDK e é linkada pelo README.
+# O `*.txt` acima o vinha ignorando em silêncio: o arquivo existia em disco, era mantido a cada
+# release, e nunca esteve no repositório. Quem clonava recebia um link quebrado.
+!llms.txt

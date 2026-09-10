@@ -50,4 +50,14 @@
         </dependency>
     </dependencies>
 
+    <!-- Submete-se ao piso de observabilidade declarado no pom do reator (FR-017). -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>
