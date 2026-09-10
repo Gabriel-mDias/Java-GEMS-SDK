@@ -48,6 +48,11 @@
             </dependency>
             <dependency>
                 <groupId>br.com.gems</groupId>
+                <artifactId>gems-auditing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.gems</groupId>
                 <artifactId>gems-aws</artifactId>
                 <version>${project.version}</version>
             </dependency>

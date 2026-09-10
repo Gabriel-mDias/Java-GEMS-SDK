@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>br.com.gems</groupId>
+        <artifactId>gems-sdk</artifactId>
+        <version>2.0.1</version>
+    </parent>
+
+    <artifactId>gems-auditing</artifactId>
+    <name>GEMS SDK Auditing</name>
+    <description>Trilha de auditoria automática por evento do ORM, sem chamada do domínio.</description>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!--
+            gems-jpa traz o Hibernate, de que o integrador e o listener dependem. O módulo NÃO
+            depende de gems-jpa-multi-tenant: onde a trilha é gravada é decisão do consumidor, por
+            AuditTrailDestination, e acoplar os dois obrigaria quem não é multi-tenant a carregar
+            multi-tenancy para ter auditoria.
+        -->
+        <dependency>
+            <groupId>br.com.gems</groupId>
+            <artifactId>gems-jpa</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!--
+            Banco em memória para provar AU-5 de verdade: abrir transação, gravar, desfazer, e
+            constatar que a trilha some junto. Sem ele, a participação na transação só poderia ser
+            afirmada por construção — e "o escritor usa a conexão do chamador" é exatamente o tipo de
+            afirmação que precisa de prova, porque a forma de quebrá-la (abrir conexão própria) não
+            deixa vestígio em teste algum que não olhe o banco.
+        -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

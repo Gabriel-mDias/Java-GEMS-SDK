@@ -35,6 +35,7 @@
         <module>gems-exception</module>
         <module>gems-jpa</module>
         <module>gems-jpa-multi-tenant</module>
+        <module>gems-auditing</module>
         <module>gems-aws</module>
         <module>gems-aws-web</module>
         <module>gems-rest-common</module>
