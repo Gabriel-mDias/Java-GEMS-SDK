@@ -35,8 +35,16 @@ class SchemaNamingConsistencyTest {
      * propriedade tem uma fonte só. Contar documentação como segunda fonte pressionaria a apagar a
      * explicação para o teste passar, o que é o incentivo exatamente invertido.
      * </p>
+     * <p>
+     * <strong>A segunda versão exigia o literal {@code @Value("$} e a prova por mutação a
+     * derrubou:</strong> declarar {@code @org.springframework.beans.factory.annotation.Value} com o
+     * nome qualificado reintroduzia o defeito e o teste seguia verde. Daí o padrão começar em
+     * {@code Value("$} — sem o arroba — que casa com as duas formas. Vale registrar porque é o tipo de
+     * teste que parece rigoroso e não é: ele estava verificando a <em>grafia</em> da anotação, não a
+     * existência de uma segunda fonte.
+     * </p>
      */
-    private static final String DECLARACAO_DO_PREFIXO = "@Value(\"${" + PROPRIEDADE_DO_PREFIXO;
+    private static final String DECLARACAO_DO_PREFIXO = "Value(\"${" + PROPRIEDADE_DO_PREFIXO;
 
     @Test
     @DisplayName("MT-2: o padrão único é tenant_")
