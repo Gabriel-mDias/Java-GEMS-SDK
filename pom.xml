@@ -22,12 +22,16 @@
         <aws.java.sdk.version>2.46.15</aws.java.sdk.version>
         <modelmapper.version>3.2.6</modelmapper.version>
         <springdoc.version>3.0.3</springdoc.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+        <keycloak.version>26.0.4</keycloak.version>
     </properties>
 
     <modules>
         <module>gems-bom</module>
         <module>gems-utils</module>
         <module>gems-model-mapper</module>
+        <module>gems-mapstruct</module>
         <module>gems-exception</module>
         <module>gems-jpa</module>
         <module>gems-jpa-multi-tenant</module>
@@ -55,6 +59,26 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok-mapstruct-binding</artifactId>
+                <version>${lombok-mapstruct-binding.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.keycloak</groupId>
+                <artifactId>keycloak-admin-client</artifactId>
+                <version>${keycloak.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

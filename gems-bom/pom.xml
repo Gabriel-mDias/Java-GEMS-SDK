@@ -28,6 +28,11 @@
             </dependency>
             <dependency>
                 <groupId>br.com.gems</groupId>
+                <artifactId>gems-mapstruct</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.gems</groupId>
                 <artifactId>gems-exception</artifactId>
                 <version>${project.version}</version>
             </dependency>
