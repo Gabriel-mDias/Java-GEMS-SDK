@@ -16,13 +16,13 @@ Se você está usando uma IA no seu projeto consumidor ou se você é uma IA len
 - **`gems-bom`**: Bill of Materials para alinhar as versões de todos os módulos da SDK nos projetos consumidores.
 - **`gems-utils`**: Classes utilitárias puras de data, e-mail, documentos, etc.
 - **`gems-model-mapper`**: Configuração e integração do ModelMapper. **Continua de primeira classe e suportado** — não é depreciado e não sai da SDK.
-- **`gems-mapstruct`** *(2.1.0)*: A configuração de mapeamento **recomendada para código novo** — `GemsMappingConfig`, um `@MapperConfig` compartilhado com `componentModel = "spring"` e `unmappedTargetPolicy = ERROR`. Campo de destino sem origem reprova a compilação nomeando o campo. Recomendado, não obrigatório.
-- **`gems-exception`**: Configuração Global de Exceções (`GlobalExceptionHandler` e suporte a Spring Security de forma opcional). Desde a 2.1.0 devolve um envelope de erro uniforme e cobre **400** (validação), **403** (autorização negada) e **502** (serviço externo).
+- **`gems-mapstruct`** *(3.0.0)*: A configuração de mapeamento **recomendada para código novo** — `GemsMappingConfig`, um `@MapperConfig` compartilhado com `componentModel = "spring"` e `unmappedTargetPolicy = ERROR`. Campo de destino sem origem reprova a compilação nomeando o campo. Recomendado, não obrigatório.
+- **`gems-exception`**: Configuração Global de Exceções (`GlobalExceptionHandler` e suporte a Spring Security de forma opcional). Desde a 3.0.0 devolve um envelope de erro uniforme e cobre **400** (validação), **403** (autorização negada) e **502** (serviço externo).
 - **`gems-jpa`**: Classes bases para repositório (`BaseCustomJpaRepository`). Auto-configuração ativável por `gems.jpa.enabled=true`.
-- **`gems-jpa-multi-tenant`**: Motor de multi-tenancy baseado em Schemas e provedores de conexão customizados do Hibernate. **A 2.1.0 muda o comportamento observável deste módulo** — veja a seção do módulo abaixo antes de subir de versão.
-- **`gems-auditing`** *(2.1.0)*: Trilha de auditoria no nível do Hibernate, **opt-in por entidade** com `@Auditable` e ativável por `gems.auditing.enabled=true`. O domínio nunca chama o escritor: um `Integrator` do Hibernate instala o listener. Pontos de extensão `@ConditionalOnMissingBean`: `AuditActorProvider` (padrão `SISTEMA`) e `AuditTrailDestination`. `@SensitiveField` registra que o campo mudou **sem** registrar os valores.
-- **`gems-keycloak-admin`** *(2.1.0)*: `KeycloakAdminGateway` — as operações administrativas sobre o provedor de identidade na linguagem de quem as chama. Toda falha sai como `KeycloakAdminException`, ou seja, **502** no envelope. **Sem auto-configuração e sem valor padrão**: `KeycloakAdminProperties` recusa `baseUrl`, `realm`, `clientId` ou `clientSecret` ausentes na construção — o ambiente mal configurado falha ao subir, não em produção.
-- **`gems-security-authorization`** *(2.1.0)*: Autorização por **ação concreta**, nunca por perfil genérico. `AuthorizationCatalog.of(<enum>)` deriva o catálogo de um enum, então ação escrita errada não compila. `@PublicEndpoint` / `@GlobalEndpoint` / `@TenantEndpoint` declaram intenção, `EndpointAuthorizationScan` reprova endpoint não marcado, e `TenantAuthorizationInterceptor` **falha fechado** (403) quando um endpoint de organização chega sem organização comprovada. `FrontendActionCatalogGenerator` **gera** a lista de ações que o frontend consome a partir do mesmo enum. Sem auto-configuração — o enum de ações é do consumidor.
+- **`gems-jpa-multi-tenant`**: Motor de multi-tenancy baseado em Schemas e provedores de conexão customizados do Hibernate. **A 3.0.0 muda o comportamento observável deste módulo** — veja a seção do módulo abaixo antes de subir de versão.
+- **`gems-auditing`** *(3.0.0)*: Trilha de auditoria no nível do Hibernate, **opt-in por entidade** com `@Auditable` e ativável por `gems.auditing.enabled=true`. O domínio nunca chama o escritor: um `Integrator` do Hibernate instala o listener. Pontos de extensão `@ConditionalOnMissingBean`: `AuditActorProvider` (padrão `SISTEMA`) e `AuditTrailDestination`. `@SensitiveField` registra que o campo mudou **sem** registrar os valores.
+- **`gems-keycloak-admin`** *(3.0.0)*: `KeycloakAdminGateway` — as operações administrativas sobre o provedor de identidade na linguagem de quem as chama. Toda falha sai como `KeycloakAdminException`, ou seja, **502** no envelope. **Sem auto-configuração e sem valor padrão**: `KeycloakAdminProperties` recusa `baseUrl`, `realm`, `clientId` ou `clientSecret` ausentes na construção — o ambiente mal configurado falha ao subir, não em produção.
+- **`gems-security-authorization`** *(3.0.0)*: Autorização por **ação concreta**, nunca por perfil genérico. `AuthorizationCatalog.of(<enum>)` deriva o catálogo de um enum, então ação escrita errada não compila. `@PublicEndpoint` / `@GlobalEndpoint` / `@TenantEndpoint` declaram intenção, `EndpointAuthorizationScan` reprova endpoint não marcado, e `TenantAuthorizationInterceptor` **falha fechado** (403) quando um endpoint de organização chega sem organização comprovada. `FrontendActionCatalogGenerator` **gera** a lista de ações que o frontend consome a partir do mesmo enum. Sem auto-configuração — o enum de ações é do consumidor.
 - **`gems-aws`**: Conectividade simplificada com a AWS (S3 e Geração de Presigned URLs) — apenas o serviço, sem stack web. Ativável por `aws.s3.enabled=true`.
 - **`gems-aws-web`**: Endpoints REST opcionais (`S3Controller`) para o módulo AWS. Inclua-o apenas se quiser os endpoints prontos.
 - **`gems-rest-common`**: Envelopes de resposta (`ApiResponseDTO`), paginação (`PageResponseDTO`) e filtro de correlation-id (`X-Correlation-Id`) para logs.
@@ -44,7 +44,7 @@ Se você está usando uma IA no seu projeto consumidor ou se você é uma IA len
 
 > **`gems-mapstruct`, `gems-keycloak-admin` e `gems-security-authorization` não têm flag** porque não têm auto-configuração. O primeiro é uma interface de configuração de mapeamento; os outros dois dependem de valores que a SDK não deve adivinhar (uma credencial administrativa; o enum de ações do próprio consumidor), então o consumidor declara os beans. É o desenho, não uma omissão.
 
-> **Piso de observabilidade:** nenhum dos quatro módulos novos da 2.1.0 depende de `gems-observability`, direta ou transitivamente. O piso deles é log estruturado; métrica e rastreamento entram quando um consumidor pedir.
+> **Piso de observabilidade:** nenhum dos quatro módulos novos da 3.0.0 depende de `gems-observability`, direta ou transitivamente. O piso deles é log estruturado; métrica e rastreamento entram quando um consumidor pedir.
 
 > **Starters web opcionais:** em `gems-exception`, `gems-aws-web` e `gems-rest-common`, o `spring-boot-starter-web` é declarado como `optional`. A aplicação consumidora deve fornecer a stack web (o que já é o caso em qualquer microsserviço REST).
 
@@ -56,7 +56,7 @@ Se você está usando uma IA no seu projeto consumidor ou se você é uma IA len
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>2.1.0</version>
+            <version>3.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -91,11 +91,11 @@ Em seguida, importe qualquer pacote:
 
 ## Módulo Multi-Tenant (`gems-jpa-multi-tenant`)
 
-> ### ⚠️ O que mudou na 2.1.0
+> ### ⚠️ O que mudou na 3.0.0
 >
-> Este módulo **muda de comportamento e quebra compilação** nesta versão. A versão é MINOR porque, na data da publicação, ele tinha **zero consumidores declarados** — condição reverificada imediatamente antes do release. Se isso deixar de ser verdade, leia esta lista antes de subir de versão.
+> Este módulo **muda de comportamento e quebra compilação** nesta versão, e **é a única razão de a 3.0.0 ser MAJOR** — em todo o resto da SDK a entrega é estritamente aditiva. Na data da publicação ele tinha zero consumidores declarados na faixa 2.x, condição reverificada imediatamente antes do release; a versão descreve o contrato, não a contagem de consumidores. Leia esta lista antes de subir de versão.
 >
-> **A API pública também quebra**, e este é o único módulo da SDK onde isso acontece: `JpaTenantContext` agora é `final` com construtor privado; a constante `DEFAULT_TENANT` foi **removida** (falhar fechado não deixa padrão para nomear); `MultiTenantLiquibaseConfig` passou de um para quatro argumentos de construtor e **não é mais `@Component`**. Código escrito contra a `2.0.x` deste módulo não compila na `2.1.0`.
+> **A API pública também quebra**, e este é o único módulo da SDK onde isso acontece: `JpaTenantContext` agora é `final` com construtor privado; a constante `DEFAULT_TENANT` foi **removida** (falhar fechado não deixa padrão para nomear); `MultiTenantLiquibaseConfig` passou de um para quatro argumentos de construtor e **não é mais `@Component`**. Código escrito contra a `2.0.x` deste módulo não compila na `3.0.0`.
 >
 > 1. **Falha fechada é o padrão.** Persistir sem tenant no contexto agora lança `TenantContextMissingException` em vez de cair silenciosamente num schema padrão. Dado que realmente não pertence a organização alguma precisa dizer isso explicitamente, abrindo um escopo global.
 > 2. **`TenantScope` é a forma suportada de entrar e sair de um tenant.** Ele fecha mesmo que o corpo lance, e o fechamento **restaura o escopo anterior** em vez de apagar o contexto — sem isso, um escopo global aninhado dentro de uma operação de organização deixaria a operação de fora sem contexto ao voltar. `JpaTenantContext.setCurrentTenant`/`clear` continuam existindo, com a disciplina por conta de quem chama.
@@ -188,7 +188,7 @@ gems.jpa.base-packages=br.com.seuprojeto
 
 # Configurações do Schema
 # Prefixo único do módulo. O padrão é `tenant_`; declare aqui apenas se precisar de outro,
-# e nunca leia esta propriedade com um @Value próprio (veja "O que mudou na 2.1.0").
+# e nunca leia esta propriedade com um @Value próprio (veja "O que mudou na 3.0.0").
 gems.tenant.schema-prefix=tenant_
 
 # Schema do escopo global. Sem padrão: pedir TenantScope.global() sem esta propriedade falha,
@@ -258,7 +258,7 @@ Adicione em `<dependencyManagement>` — isso evita declarar `<version>` em cada
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>2.1.0</version>
+            <version>3.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -340,7 +340,7 @@ gems:
   # --- gems-jpa-multi-tenant (somente se o serviço for multi-tenant) ---
   tenant:
     enabled: true
-    schema-prefix: tenant_                # padrão desde a 2.1.0; único leitor é TenantSchemaNaming
+    schema-prefix: tenant_                # padrão desde a 3.0.0; único leitor é TenantSchemaNaming
     global-schema: administracao          # sem padrão — TenantScope.global() falha sem esta
     liquibase:
       changelog: db/changelog/changelog-multi-schemas.xml

@@ -10,20 +10,20 @@ It follows the llmstxt.org convention and is kept up-to-date with the public API
 GEMS SDK (`br.com.gems:gems-sdk`) is a multi-module Maven library of shared, reusable resources consumed by GEMS microservices.
 It is published as JARs to GitHub Packages — it is NOT a runnable application.
 
-- **Current version:** 2.1.0
+- **Current version:** 3.0.0
 - **Java:** 21
 - **Spring Boot parent:** 4.1.0
 - **GroupId:** `br.com.gems`
 - **GitHub Packages URL:** `https://maven.pkg.github.com/Gabriel-mDias/Java-GEMS-SDK`
 - **Architecture:** Spring Boot starter-style auto-configuration — consumers add the dependency and optionally set a property; no `@Import` or `@ComponentScan` needed. Three modules ship no auto-configuration on purpose (`gems-mapstruct`, `gems-keycloak-admin`, `gems-security-authorization`) — see their sections.
 
-### What 2.1.0 adds and changes
+### What 3.0.0 adds and changes
 
 **Four new modules**, all additive: `gems-mapstruct`, `gems-auditing`, `gems-keycloak-admin`, `gems-security-authorization`. Nothing is deprecated anywhere in the SDK, and `gems-model-mapper` remains first-class and supported.
 
 In **fifteen of the sixteen modules** no existing public API changed signature or was removed. The exception is `gems-jpa-multi-tenant`, whose rewrite is source-incompatible — see below. Verified against the `2.0.1` baseline before release.
 
-**One module changes observable behaviour**: `gems-jpa-multi-tenant`. It is a MINOR release because that module had **zero declared consumers** at release time (re-verified immediately before publishing). The changes:
+**One module changes observable behaviour and breaks its public API**: `gems-jpa-multi-tenant`. That module alone is why this is a **MAJOR** release — everywhere else the release is strictly additive. It had zero declared consumers in the 2.x range at release time (re-verified immediately before publishing), but the version states the contract, not the consumer count. The changes:
 
 1. Fail-closed by default — persisting with no tenant in context raises `TenantContextMissingException` instead of falling back to a default schema.
 2. `TenantScope` is the supported way to enter/leave a tenant; it closes on exception and restores the previous scope rather than clearing the context.
@@ -31,7 +31,7 @@ In **fifteen of the sixteen modules** no existing public API changed signature o
 4. Migrations run at **provisioning**; the persistence path only checks and refuses with `TenantSchemaNotReadyException`.
 5. Global scope must be explicit and requires `gems.tenant.global-schema` — there is no default.
 
-Its **public API is also source-incompatible**, which is why "additive" does not describe this module: `JpaTenantContext` is now `final` with a private constructor (was an extensible/instantiable class); its `public static final String DEFAULT_TENANT = "public"` was **removed** (fail-closed leaves no default to name); and `MultiTenantLiquibaseConfig` moved from `MultiTenantLiquibaseConfig(DataSource)` plus `@Value` fields to a four-argument constructor and is no longer a `@Component` — it is wired by configuration. Code written against `2.0.x` of this module does not compile against `2.1.0`.
+Its **public API is also source-incompatible**, which is why "additive" does not describe this module: `JpaTenantContext` is now `final` with a private constructor (was an extensible/instantiable class); its `public static final String DEFAULT_TENANT = "public"` was **removed** (fail-closed leaves no default to name); and `MultiTenantLiquibaseConfig` moved from `MultiTenantLiquibaseConfig(DataSource)` plus `@Value` fields to a four-argument constructor and is no longer a `@Component` — it is wired by configuration. Code written against `2.0.x` of this module does not compile against `3.0.0`.
 
 `gems-exception` gained a uniform error envelope and handlers for 400 (validation), 403 (`AccessDeniedException`) and 502 (external service), additively.
 
@@ -45,7 +45,7 @@ Its **public API is also source-incompatible**, which is why "additive" does not
 - Activate opt-in modules via `application.yml` flags (see Property Reference below).
 - Prefer `TenantScope.forTenant(alias)` / `TenantScope.global()` (try-with-resources) over `JpaTenantContext.setCurrentTenant` / `clear`. It closes on exception and restores the previous scope, so nesting works.
 - If you do use `JpaTenantContext` directly, always clear it in a `finally` block — failure causes tenant state to leak across pooled threads.
-- Be explicit about data that belongs to no organization: open `TenantScope.global()`. Since 2.1.0 there is no silent fallback schema.
+- Be explicit about data that belongs to no organization: open `TenantScope.global()`. Since 3.0.0 there is no silent fallback schema.
 - Use `@Mapper(config = GemsMappingConfig.class)` for new mappers (`gems-mapstruct`). `gems-model-mapper` is still supported — don't migrate working code just for this.
 - Mark audited entities with `@Auditable`, and sensitive fields with `@SensitiveField` (records that the field changed, not its values).
 - Declare authorization intent on every endpoint: `@PublicEndpoint`, `@GlobalEndpoint` or `@TenantEndpoint`.
@@ -85,7 +85,7 @@ Its **public API is also source-incompatible**, which is why "additive" does not
 | `gems-mapstruct` | `GemsMappingConfig` — shared MapStruct `@MapperConfig`, **recommended for new code** | None (no auto-config) | N/A |
 | `gems-exception` | Global `@RestControllerAdvice` exception handler — uniform envelope, 400/403/502 | None (auto-loaded) | always on |
 | `gems-jpa` | Base JPA repository abstractions | `gems.jpa.enabled=true` | false |
-| `gems-jpa-multi-tenant` | Schema-per-tenant multi-tenancy (requires gems-jpa) — **fail-closed since 2.1.0** | `gems.tenant.enabled=true` | false |
+| `gems-jpa-multi-tenant` | Schema-per-tenant multi-tenancy (requires gems-jpa) — **fail-closed since 3.0.0** | `gems.tenant.enabled=true` | false |
 | `gems-auditing` | Hibernate-level audit trail, opt-in per entity via `@Auditable` | `gems.auditing.enabled=true` (+ `gems.auditing.schema`) | false |
 | `gems-keycloak-admin` | `KeycloakAdminGateway` — identity-provider admin operations; failures become 502 | None (no auto-config) | N/A |
 | `gems-security-authorization` | Authorization by concrete action, derived from the consumer's enum | None (no auto-config) | N/A |
@@ -131,7 +131,7 @@ Authentication in `~/.m2/settings.xml`:
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>2.1.0</version>
+            <version>3.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -271,7 +271,7 @@ new BusinessException(List<String> messages)       // multi-error
 // Authentication failure → HTTP 401
 new SecurityException(String message)
 
-// External service unavailable → HTTP 502   (2.1.0)
+// External service unavailable → HTTP 502   (3.0.0)
 new ExternalServiceException(String servico, String message)
 new ExternalServiceException(String servico, String message, Throwable causa)
 ```
@@ -282,9 +282,9 @@ new ExternalServiceException(String servico, String message, Throwable causa)
 ErrorTypeEnum.ERRO_NAO_ESPERADO  // unexpected system error (500)
 ErrorTypeEnum.FALHA              // business rule failure (400)
 ErrorTypeEnum.ALERTA             // business rule warning (400)
-ErrorTypeEnum.VALIDACAO          // validation failure (400)        (2.1.0)
-ErrorTypeEnum.ACESSO_NEGADO      // authorization denied (403)      (2.1.0)
-ErrorTypeEnum.SERVICO_INDISPONIVEL // external service down (502)   (2.1.0)
+ErrorTypeEnum.VALIDACAO          // validation failure (400)        (3.0.0)
+ErrorTypeEnum.ACESSO_NEGADO      // authorization denied (403)      (3.0.0)
+ErrorTypeEnum.SERVICO_INDISPONIVEL // external service down (502)   (3.0.0)
 ```
 
 #### ExceptionResponseDTO (response body — the uniform envelope)
@@ -301,7 +301,7 @@ ErrorTypeEnum.SERVICO_INDISPONIVEL // external service down (502)   (2.1.0)
 }
 ```
 
-`codigo` and `detalhes` were added in 2.1.0 — additively; existing fields are unchanged.
+`codigo` and `detalhes` were added in 3.0.0 — additively; existing fields are unchanged.
 
 #### Handlers (registered automatically)
 
@@ -309,11 +309,11 @@ ErrorTypeEnum.SERVICO_INDISPONIVEL // external service down (502)   (2.1.0)
 |---|---|
 | `BusinessException` | 400 |
 | `IllegalArgumentException` | 400 |
-| `MethodArgumentNotValidException` | 400 (2.1.0) |
+| `MethodArgumentNotValidException` | 400 (3.0.0) |
 | `SecurityException` | 401 |
 | `BadCredentialsException`, `AuthorizationDeniedException` | 401 (`SecurityExceptionHandler`) |
-| `AccessDeniedException` | **403** (2.1.0 — `AuthorizationExceptionHandler`) |
-| `ExternalServiceException` | **502** (2.1.0) |
+| `AccessDeniedException` | **403** (3.0.0 — `AuthorizationExceptionHandler`) |
+| `ExternalServiceException` | **502** (3.0.0) |
 | `Exception` (catch-all) | 500 |
 
 403, not 401, for `AccessDeniedException`: whoever reached the handler is authenticated; what is missing is authorization.
@@ -469,7 +469,7 @@ public class PedidoService {
 **Auto-configuration:** `MultiTenantJpaConfig` — every bean is `@ConditionalOnMissingBean`, so the consumer can replace any of them
 **Activation:** `gems.tenant.enabled=true` (also requires `gems.jpa.enabled=true`)
 
-> **BEHAVIOUR CHANGED IN 2.1.0.** See "What 2.1.0 adds and changes" at the top of this file before upgrading a project that used 2.0.x.
+> **BEHAVIOUR CHANGED IN 3.0.0.** See "What 3.0.0 adds and changes" at the top of this file before upgrading a project that used 2.0.x.
 
 #### TenantScope — the supported way to enter and leave a tenant
 
@@ -549,7 +549,7 @@ gems:
     base-packages: br.com.seuprojeto
   tenant:
     enabled: true
-    schema-prefix: tenant_          # default since 2.1.0
+    schema-prefix: tenant_          # default since 3.0.0
     global-schema: administracao    # no default; TenantScope.global() fails without it
     client-query: SELECT DS_SIGLA_CLIENT FROM tenant_configuration.client
     liquibase:
@@ -1045,7 +1045,7 @@ gems:
 # gems-jpa-multi-tenant (default: false)
   tenant:
     enabled: true
-    schema-prefix: tenant_          # default since 2.1.0; read ONLY by TenantSchemaNaming
+    schema-prefix: tenant_          # default since 3.0.0; read ONLY by TenantSchemaNaming
     global-schema: administracao    # no default; TenantScope.global() fails without it
     client-query: SELECT DS_SIGLA_CLIENT FROM tenant_configuration.client
     liquibase:

@@ -10,7 +10,7 @@
     </parent>
     <groupId>br.com.gems</groupId>
     <artifactId>gems-sdk</artifactId>
-    <version>2.1.0</version>
+    <version>3.0.0</version>
     <packaging>pom</packaging>
     <name>GEMS SDK</name>
     <description>SDK público com recursos compartilhados (utils, exceptions, jpa, aws, model mapper)</description>
@@ -106,7 +106,7 @@
         <pluginManagement>
             <plugins>
                 <!--
-                    O piso de observabilidade dos módulos de 2.1.0 é log estruturado, e nada além
+                    O piso de observabilidade dos módulos de 3.0.0 é log estruturado, e nada além
                     disso (FR-017). Quem quiser métrica traz gems-observability por conta própria;
                     nenhum dos quatro módulos novos pode arrastá-lo, nem por transitividade — senão
                     adotar auditoria passaria a significar adotar Micrometer sem ter pedido.

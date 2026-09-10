@@ -27,7 +27,7 @@
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>2.1.0</version>
+            <version>3.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -41,7 +41,7 @@
 <dependency><groupId>br.com.gems</groupId><artifactId>gems-utils</artifactId></dependency>
 <dependency><groupId>br.com.gems</groupId><artifactId>gems-exception</artifactId></dependency>
 <dependency><groupId>br.com.gems</groupId><artifactId>gems-rest-common</artifactId></dependency>
-<!-- 2.1.0 -->
+<!-- 3.0.0 -->
 <dependency><groupId>br.com.gems</groupId><artifactId>gems-mapstruct</artifactId></dependency>
 <dependency><groupId>br.com.gems</groupId><artifactId>gems-auditing</artifactId></dependency>
 <dependency><groupId>br.com.gems</groupId><artifactId>gems-keycloak-admin</artifactId></dependency>
@@ -60,7 +60,7 @@
 | `gems-mapstruct` | `gems-mapstruct` | nenhuma (sem auto-config) | `GemsMappingConfig` — **recomendado para código novo** |
 | `gems-exception` | `gems-exception` | nenhuma | `BusinessException`, `SecurityException`, `GlobalExceptionHandler` (400/403/502 + envelope uniforme) |
 | `gems-jpa` | `gems-jpa` | `gems.jpa.enabled=true` | `BaseCustomJpaRepository<T>` |
-| `gems-jpa-multi-tenant` | `gems-jpa-multi-tenant` | `gems.tenant.enabled=true` | `TenantScope`, `JpaTenantContext`, `TenantSchemaService` — **falha fechada desde a 2.1.0** |
+| `gems-jpa-multi-tenant` | `gems-jpa-multi-tenant` | `gems.tenant.enabled=true` | `TenantScope`, `JpaTenantContext`, `TenantSchemaService` — **falha fechada desde a 3.0.0** |
 | `gems-auditing` | `gems-auditing` | `gems.auditing.enabled=true` + `gems.auditing.schema` | `@Auditable`, `@SensitiveField`, `AuditActorProvider`, `AuditTrailDestination` |
 | `gems-keycloak-admin` | `gems-keycloak-admin` | nenhuma (sem auto-config) | `KeycloakAdminGateway`, `KeycloakAdminRestClient`, `KeycloakAdminProperties` |
 | `gems-security-authorization` | `gems-security-authorization` | nenhuma (sem auto-config) | `AuthorizationCatalog`, `@PublicEndpoint`/`@GlobalEndpoint`/`@TenantEndpoint`, `TenantAuthorizationInterceptor`, `FrontendActionCatalogGenerator` |
@@ -250,7 +250,7 @@ public class PedidoService {
 
 Requer `gems-jpa`. Ativar ambos.
 
-> **A 2.1.0 muda o comportamento deste módulo.** Falha fechada é o padrão, o prefixo passou a ser `tenant_` e a migração roda no provisionamento. Se você está gerando código para um projeto que já usava a 2.0.x, leia a seção "O que mudou na 2.1.0" do [`README.md`](README.md) antes.
+> **A 3.0.0 muda o comportamento deste módulo e quebra a API pública dele** — é a única razão de a versão ser MAJOR. Falha fechada é o padrão, o prefixo passou a ser `tenant_`, a migração roda no provisionamento, `JpaTenantContext` é `final` sem `DEFAULT_TENANT`, e `MultiTenantLiquibaseConfig` deixou de ser `@Component`. Se você está gerando código para um projeto que já usava a 2.0.x, leia "O que mudou na 3.0.0" do [`README.md`](README.md) e a seção de migração de [`RELEASE-NOTES-3.0.0.md`](RELEASE-NOTES-3.0.0.md) antes.
 
 ```yaml
 gems:
@@ -259,7 +259,7 @@ gems:
     base-packages: br.com.seuprojeto
   tenant:
     enabled: true
-    schema-prefix: tenant_          # padrão desde a 2.1.0
+    schema-prefix: tenant_          # padrão desde a 3.0.0
     global-schema: administracao    # sem padrão; TenantScope.global() falha sem ela
     liquibase:
       changelog: db/changelog/changelog-multi-schemas.xml
@@ -531,11 +531,11 @@ public Usuario buscarPorId(UUID id) { ... }
 | S3 retornando 403 | Credenciais ausentes ou inválidas | Verifique `aws.s3.access-key` / `aws.s3.secret-key` ou permissões IAM |
 | `@ValidCpf` aceitando `null` | Comportamento intencional da constraint | Adicione `@NotNull` ao campo |
 | Versão desatualizada no módulo filho | Edição manual do `<version>` no pom.xml | Use `mvn versions:set -DnewVersion=X.Y.Z -DgenerateBackupPoms=false` |
-| `TenantContextMissingException` onde antes funcionava | 2.1.0 passou a falhar fechado em vez de cair num schema padrão | Abra o escopo: `TenantScope.forTenant(alias)` para dado de organização, `TenantScope.global()` para o que não pertence a nenhuma |
+| `TenantContextMissingException` onde antes funcionava | 3.0.0 passou a falhar fechado em vez de cair num schema padrão | Abra o escopo: `TenantScope.forTenant(alias)` para dado de organização, `TenantScope.global()` para o que não pertence a nenhuma |
 | Dados gravados "somem" após o upgrade | O schema mudou de prefixo: o padrão passou de `instituicao_` para `tenant_` | Declare `gems.tenant.schema-prefix` com o valor que o seu banco já usa, ou migre os schemas |
 | Escopo global falha ao abrir | `gems.tenant.global-schema` não configurada — não há padrão | Configure a propriedade; a SDK não escolhe um schema por omissão |
-| `TenantSchemaNotReadyException` na primeira requisição | Desde a 2.1.0 a migração roda no **provisionamento**, não no primeiro uso | Chame `TenantSchemaService.createSchemaAndRunLiquibase(sigla)` ao provisionar a organização |
-| Migração roda num schema e o tráfego lê de outro | Um `@Value("${gems.tenant.schema-prefix}")` próprio no projeto consumidor | Remova-o. `TenantSchemaNaming` é o único leitor da propriedade — era esse o defeito que a 2.1.0 fechou |
+| `TenantSchemaNotReadyException` na primeira requisição | Desde a 3.0.0 a migração roda no **provisionamento**, não no primeiro uso | Chame `TenantSchemaService.createSchemaAndRunLiquibase(sigla)` ao provisionar a organização |
+| Migração roda num schema e o tráfego lê de outro | Um `@Value("${gems.tenant.schema-prefix}")` próprio no projeto consumidor | Remova-o. `TenantSchemaNaming` é o único leitor da propriedade — era esse o defeito que a 3.0.0 fechou |
 | Mapeador MapStruct não é gerado, sem erro algum | O pom declara `<annotationProcessorPaths>`, o que **substitui** a lista herdada | Acrescente lá `lombok-mapstruct-binding` (depois do Lombok) e `mapstruct-processor` (por último) |
 | Build reprova em campo de destino sem origem | `unmappedTargetPolicy = ERROR` — é o propósito do `gems-mapstruct` | Trate o campo. **Não** baixe para `WARN`: cada reprovação é um campo que hoje chega nulo em silêncio |
 | Aplicação não sobe: `gems.auditing.schema` não configurada | Obrigatória, sem padrão embutido — a SDK não escolhe o destino da trilha | Declare a propriedade, ou registre um `AuditTrailDestination` próprio para rotear por organização |

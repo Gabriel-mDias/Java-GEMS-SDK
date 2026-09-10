@@ -43,10 +43,10 @@ Modules and their intra-SDK dependencies:
 - `gems-bom` — `pom`-packaged Bill of Materials listing all `br.com.gems:*` modules at the project version, for consumers to `import`.
 - `gems-utils` — pure utility classes (date, email, document/CPF-CNPJ, UUID, object). No Spring deps; foundation for others.
 - `gems-model-mapper` — single auto-configured `ModelMapper` bean (`GemsModelMapperAutoConfiguration`, `@ConditionalOnMissingBean`). data-jpa is `optional`. **First-class and supported** — it is not deprecated and is not going away.
-- `gems-mapstruct` — **the recommended mapping approach for new code** (2.1.0). A single shared `@MapperConfig`, `GemsMappingConfig`, with `componentModel = "spring"` and `unmappedTargetPolicy = ERROR`; consumer mappers declare `@Mapper(config = GemsMappingConfig.class)`. The `ERROR` policy is the point of the module: a target field with no source fails compilation naming the field. **Never relax it to `WARN`** — each failure is a field that silently arrives null today.
-- `gems-exception` — global REST exception handling; web + Spring Security are `optional`. Since 2.1.0 it emits a uniform error envelope and covers 400 (validation), 403 (`AccessDeniedException`) and 502 (external service) alongside the pre-existing handlers.
+- `gems-mapstruct` — **the recommended mapping approach for new code** (3.0.0). A single shared `@MapperConfig`, `GemsMappingConfig`, with `componentModel = "spring"` and `unmappedTargetPolicy = ERROR`; consumer mappers declare `@Mapper(config = GemsMappingConfig.class)`. The `ERROR` policy is the point of the module: a target field with no source fails compilation naming the field. **Never relax it to `WARN`** — each failure is a field that silently arrives null today.
+- `gems-exception` — global REST exception handling; web + Spring Security are `optional`. Since 3.0.0 it emits a uniform error envelope and covers 400 (validation), 403 (`AccessDeniedException`) and 502 (external service) alongside the pre-existing handlers.
 - `gems-jpa` — base JPA repository abstractions (`BaseCustomJpaRepository` + impl). Auto-config gated on `gems.jpa.enabled=true`.
-- `gems-jpa-multi-tenant` — depends on `gems-jpa`; schema-based multi-tenancy engine. Tenant identifiers are validated via `TenantIdentifierValidator` before composing schema SQL (SQL-injection guard). **Behaviour changed in 2.1.0 — see "Multi-tenant module specifics".**
+- `gems-jpa-multi-tenant` — depends on `gems-jpa`; schema-based multi-tenancy engine. Tenant identifiers are validated via `TenantIdentifierValidator` before composing schema SQL (SQL-injection guard). **Behaviour and public API changed in 3.0.0 — see "Multi-tenant module specifics".**
 - `gems-auditing` — Hibernate-level audit trail, opt-in per entity via `@Auditable` and gated on `gems.auditing.enabled=true`. The domain never calls the writer: a Hibernate `Integrator` installs the listener, and `TransactionalAuditWriter` is package-private on purpose. Two `@ConditionalOnMissingBean` extension points — `AuditActorProvider` (defaults to `SystemAuditActorProvider`, actor `SISTEMA`) and `AuditTrailDestination`. `@SensitiveField` records that a field changed without recording its values.
 - `gems-keycloak-admin` — `KeycloakAdminGateway`, the admin operations against the identity provider expressed as operations ("ensure organization", "create user"), with `KeycloakAdminRestClient` as the transport. Every failure leaves as `KeycloakAdminException`, i.e. 502 in the `gems-exception` envelope. **No auto-configuration and no defaults**: `KeycloakAdminProperties` rejects a missing `baseUrl`, `realm`, `clientId` or `clientSecret` at construction, so a misconfigured environment fails at startup instead of pointing at the wrong realm in production. The consumer builds the bean and binds the values from its own config mechanism; no secret is ever committed here.
 - `gems-security-authorization` — authorization by **concrete action**, never by generic role. `AuthorizationCatalog.of(<enum>)` derives the catalogue from an enum implementing `AuthorizationAction`, so a mistyped action does not compile; global and tenant scopes must be disjoint. `@PublicEndpoint`/`@GlobalEndpoint`/`@TenantEndpoint` mark intent, `EndpointAuthorizationScan` fails the build on an unmarked endpoint, and `TenantAuthorizationInterceptor` fails **closed** (403, not 401) when a tenant endpoint arrives without a proven organization. `FrontendActionCatalogGenerator` *generates* the frontend's JSON action list from the same enum and `verify(...)` fails when it is out of date — the list is a consequence of the enum, not a third copy to keep in parity by hand.
@@ -65,7 +65,23 @@ Heavier modules activate only when explicitly enabled via `@ConditionalOnPropert
 
 ### Observability floor
 
-The four modules added in 2.1.0 (`gems-mapstruct`, `gems-auditing`, `gems-keycloak-admin`, `gems-security-authorization`) must **not** depend on `gems-observability`, directly or transitively. Their observability floor is structured logging and nothing beyond it; metrics and tracing arrive when a consumer asks for them. An architecture test in the reactor enforces this.
+The four modules added in 3.0.0 (`gems-mapstruct`, `gems-auditing`, `gems-keycloak-admin`, `gems-security-authorization`) must **not** depend on `gems-observability`, directly or transitively. Their observability floor is structured logging and nothing beyond it; metrics and tracing arrive when a consumer asks for them. An architecture test in the reactor enforces this.
+
+### Structured logging convention
+
+The floor above is only useful if every module writes the same shape. These modules log through SLF4J with **structured arguments, never MDC**: MDC leaks across threads and is silently empty in async paths, and a field that is sometimes there is a field nobody can filter on.
+
+Three fields are mandatory on every log statement these modules emit:
+
+| Field | Value |
+| :--- | :--- |
+| `organizacao` | the organization the operation belongs to. **Never omitted.** When the context is absent, it carries the sentinel `"<ausente>"` — an absent organization is itself the fact worth reading, and dropping the field makes the two cases indistinguishable in a log search |
+| `causa` | what happened, as a stable identifier rather than a sentence, so it survives message rewording |
+| `modulo` | the emitting module (`gems-auditing`, `gems-jpa-multi-tenant`, …) |
+
+When `organizacao` is `"<ausente>"`, the statement also carries **which alias source was consulted** and **which point refused** — without those two, the log says something went wrong without saying where to look.
+
+Level is `ERROR` for a refused tenant context and for a failed migration. Both are conditions under which the application is serving requests it cannot serve correctly; anything quieter turns them into noise that a dashboard filters out.
 
 ### Shared dependency versions
 
@@ -75,9 +91,9 @@ Third-party versions are centralized in the root `pom.xml` `<dependencyManagemen
 
 Schema-per-tenant isolation built on Hibernate's `MultiTenantConnectionProvider` / `CurrentTenantIdentifierResolver`, wired through `HibernatePropertiesCustomizer`.
 
-> **2.1.0 changes observable behaviour here, and breaks source compatibility.** It is a MINOR release because the module had **zero declared consumers** at release time (re-verified immediately before publishing). Read this section before upgrading if that ever stops being true.
+> **3.0.0 changes observable behaviour here, and breaks source compatibility. This module is the sole reason 3.0.0 is a MAJOR release** — everywhere else the release is strictly additive. The module had zero declared consumers in the 2.x range at release time (re-verified immediately before publishing), but the version states the contract, not the consumer count. Read this section before upgrading.
 >
-> The API breaks, and this is the one place in the SDK where it does: `JpaTenantContext` is now `final` with a private constructor; its `public static final String DEFAULT_TENANT` was **removed** (failing closed leaves no default to name); `MultiTenantLiquibaseConfig` takes four constructor arguments instead of one and is no longer a `@Component`. Code written against `2.0.x` of this module does not compile against `2.1.0`.
+> The API breaks, and this is the one place in the SDK where it does: `JpaTenantContext` is now `final` with a private constructor; its `public static final String DEFAULT_TENANT` was **removed** (failing closed leaves no default to name); `MultiTenantLiquibaseConfig` takes four constructor arguments instead of one and is no longer a `@Component`. Code written against `2.0.x` of this module does not compile against `3.0.0`. The migration steps are in `RELEASE-NOTES-3.0.0.md`.
 
 - **Fail-closed is the default (MT-1).** A persistence operation with no tenant in context now raises `TenantContextMissingException` instead of silently falling back to a default schema. Data that genuinely belongs to no organization must say so explicitly, via a global scope.
 - **`TenantScope` is the supported way to enter and leave a tenant.** It closes in a `finally` even when the body throws, and closing **restores the previous scope** rather than clearing the context, so nesting a global scope inside a tenant operation does not strand the outer one. `JpaTenantContext.setCurrentTenant`/`clear` still exist and still leave the discipline to the caller.
