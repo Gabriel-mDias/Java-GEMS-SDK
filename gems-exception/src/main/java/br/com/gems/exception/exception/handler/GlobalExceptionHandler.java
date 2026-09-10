@@ -2,6 +2,7 @@ package br.com.gems.exception.exception.handler;
 
 import br.com.gems.exception.base.BaseController;
 import br.com.gems.exception.exception.BusinessException;
+import br.com.gems.exception.exception.ExternalServiceException;
 import br.com.gems.exception.exception.SecurityException;
 import br.com.gems.exception.exception.dto.ExceptionResponseDTO;
 import br.com.gems.exception.exception.enums.ErrorTypeEnum;
@@ -9,6 +10,7 @@ import br.com.gems.utils.ObjectUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -60,11 +62,59 @@ public class GlobalExceptionHandler {
                         .occurrenceTime( LocalDateTime.now() )
                         .errorType( ex.getErrorType() )
                         .message( ex.getMessage() )
+                        .codigo( ex.getCodigo() )
+                        .detalhes( ex.getDetalhes() )
                         .path( request.getServletPath() )
                         .method( request.getMethod() )
                         .build();
 
         logFalhaOrAlerta( error, request );
+        return error;
+    }
+
+    /**
+     * Validação acumulada do corpo da requisição. Todas as violações vão em {@code detalhes};
+     * a mensagem é o resumo. Devolver só a primeira violação obrigaria o cliente a corrigir
+     * um campo por vez.
+     */
+    @ExceptionHandler( MethodArgumentNotValidException.class )
+    @ResponseStatus( HttpStatus.BAD_REQUEST )
+    public ExceptionResponseDTO handleValidationException( MethodArgumentNotValidException ex,
+                                                           HttpServletRequest request ) {
+        var violacoes = ex.getBindingResult().getFieldErrors().stream()
+                .map( campo -> campo.getField() + ": " + campo.getDefaultMessage() )
+                .toList();
+
+        var error = ExceptionResponseDTO.builder()
+                .occurrenceTime( LocalDateTime.now() )
+                .errorType( ErrorTypeEnum.VALIDACAO )
+                .message( String.join( "\n", violacoes ) )
+                .detalhes( violacoes )
+                .path( request.getServletPath() )
+                .method( request.getMethod() )
+                .build();
+
+        logFalhaOrAlerta( error, request );
+        return error;
+    }
+
+    /**
+     * Serviço fora do processo indisponível. A mensagem do cliente não nomeia o serviço —
+     * quem falhou é problema de operação, e vai para o log.
+     */
+    @ExceptionHandler( ExternalServiceException.class )
+    @ResponseStatus( HttpStatus.BAD_GATEWAY )
+    public ExceptionResponseDTO handleExternalServiceException( ExternalServiceException ex,
+                                                                HttpServletRequest request ) {
+        var error = ExceptionResponseDTO.builder()
+                .occurrenceTime( LocalDateTime.now() )
+                .errorType( ErrorTypeEnum.SERVICO_INDISPONIVEL )
+                .message( ex.getMessage() )
+                .path( request.getServletPath() )
+                .method( request.getMethod() )
+                .build();
+
+        log.error( "Servico externo indisponivel: {} - {}", ex.getServico(), error, ex );
         return error;
     }
 

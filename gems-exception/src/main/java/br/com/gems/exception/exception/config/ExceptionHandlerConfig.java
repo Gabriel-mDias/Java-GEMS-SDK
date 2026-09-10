@@ -1,12 +1,23 @@
 package br.com.gems.exception.exception.config;
 
+import br.com.gems.exception.exception.handler.AuthorizationExceptionHandler;
 import br.com.gems.exception.exception.handler.GlobalExceptionHandler;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 
+/**
+ * Registro dos handlers padrão da SDK.
+ * <p>
+ * A condição está na <b>classe</b>, não em cada método: avaliada por método, o primeiro bean
+ * registrado — que também é um {@code @ControllerAdvice} — desligaria os seguintes, e a
+ * configuração se auto-anularia depois do primeiro handler.
+ * </p>
+ */
 @Configuration
+@ConditionalOnMissingBean( annotation = ControllerAdvice.class )
 public class ExceptionHandlerConfig {
 
     /**
@@ -16,9 +27,24 @@ public class ExceptionHandlerConfig {
      * a implementação “default” de manipulação de exceções (RestControllerAdvice).
      */
     @Bean
-    @ConditionalOnMissingBean(annotation = ControllerAdvice.class)
     public GlobalExceptionHandler globalExceptionHandler() {
         return new GlobalExceptionHandler();
+    }
+
+    /**
+     * Só entra quando o consumidor tem Spring Security no classpath — a dependência é
+     * opcional no módulo, e referenciar {@code AccessDeniedException} sem ela quebraria
+     * a subida de quem não usa segurança.
+     */
+    @Configuration
+    @ConditionalOnClass( name = "org.springframework.security.access.AccessDeniedException" )
+    public static class SecurityHandlerConfig {
+
+        @Bean
+        public AuthorizationExceptionHandler authorizationExceptionHandler() {
+            return new AuthorizationExceptionHandler();
+        }
+
     }
 
 }

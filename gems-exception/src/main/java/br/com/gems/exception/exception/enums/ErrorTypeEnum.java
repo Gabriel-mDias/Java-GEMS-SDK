@@ -8,6 +8,9 @@ public enum ErrorTypeEnum {
     ERRO_NAO_ESPERADO( "Erro não esperado" ),
     FALHA( "Falha" ),
     ALERTA( "Alerta" ),
+    VALIDACAO( "Falha de validação" ),
+    ACESSO_NEGADO( "Acesso negado" ),
+    SERVICO_INDISPONIVEL( "Serviço externo indisponível" ),
     ;
 
     private String description;
