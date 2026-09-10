@@ -53,6 +53,16 @@
             </dependency>
             <dependency>
                 <groupId>br.com.gems</groupId>
+                <artifactId>gems-keycloak-admin</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.gems</groupId>
+                <artifactId>gems-security-authorization</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.gems</groupId>
                 <artifactId>gems-aws</artifactId>
                 <version>${project.version}</version>
             </dependency>
