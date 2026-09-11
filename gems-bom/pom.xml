@@ -28,6 +28,11 @@
             </dependency>
             <dependency>
                 <groupId>br.com.gems</groupId>
+                <artifactId>gems-mapstruct</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.gems</groupId>
                 <artifactId>gems-exception</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -39,6 +44,21 @@
             <dependency>
                 <groupId>br.com.gems</groupId>
                 <artifactId>gems-jpa-multi-tenant</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.gems</groupId>
+                <artifactId>gems-auditing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.gems</groupId>
+                <artifactId>gems-keycloak-admin</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.gems</groupId>
+                <artifactId>gems-security-authorization</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

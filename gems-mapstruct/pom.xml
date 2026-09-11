@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>br.com.gems</groupId>
+        <artifactId>gems-sdk</artifactId>
+        <version>2.0.1</version>
+    </parent>
+    <artifactId>gems-mapstruct</artifactId>
+    <name>GEMS SDK MapStruct</name>
+    <description>Configuração de mapeamento compartilhada do MapStruct: campo de destino sem origem reprova a compilação</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+        <!--
+            O processador vem no classpath de compilação de propósito: o consumidor que não declara
+            annotationProcessorPaths recebe a geração por descoberta, sem configurar nada à mão.
+            Quem já declara annotationProcessorPaths precisa acrescentar mapstruct-processor lá —
+            está documentado no AI-CONSUMER-GUIDE, porque a omissão não quebra a compilação: ela
+            deixa de gerar o mapeador.
+        -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct-processor</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Sobrescreve a lista do pom raiz, que traz só o Lombok. Declarar
+                        annotationProcessorPaths num módulo substitui a lista herdada — omitir o
+                        Lombok aqui o desligaria neste módulo.
+                        A ordem importa: o binding precisa vir depois do Lombok e antes do MapStruct.
+                    -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>${lombok-mapstruct-binding.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

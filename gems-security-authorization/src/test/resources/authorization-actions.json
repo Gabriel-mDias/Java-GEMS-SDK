@@ -1,0 +1,9 @@
+{
+  "global": [
+    "ALTERAR_ORGANIZACAO",
+    "CONSULTAR_ORGANIZACAO"
+  ],
+  "tenant": [
+    "CONSULTAR_TURMA"
+  ]
+}

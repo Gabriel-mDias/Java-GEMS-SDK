@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>br.com.gems</groupId>
+        <artifactId>gems-sdk</artifactId>
+        <version>2.0.1</version>
+    </parent>
+
+    <artifactId>gems-keycloak-admin</artifactId>
+    <name>GEMS SDK Keycloak Admin</name>
+    <description>Administração do provedor de identidade pela API de admin do Keycloak.</description>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!--
+            gems-exception dá a ExternalServiceException, que é como KA-1 sai como 502 sem que este
+            módulo escreva handler algum. O módulo NÃO depende de gems-security-authorization:
+            administrar o provedor e autorizar uma requisição são responsabilidades distintas, e um
+            serviço pode precisar da segunda sem nunca precisar da primeira.
+        -->
+        <dependency>
+            <groupId>br.com.gems</groupId>
+            <artifactId>gems-exception</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--
+            Declarado aqui porque em gems-exception ele é <optional>, e dependência opcional não é
+            transitiva. O RestClient do transporte vem daqui.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+</project>

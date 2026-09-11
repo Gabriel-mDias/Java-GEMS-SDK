@@ -1,17 +1,9 @@
 package br.com.gems.tenant;
 
-import liquibase.Contexts;
-import liquibase.LabelExpression;
-import liquibase.Liquibase;
-import liquibase.database.Database;
-import liquibase.database.DatabaseFactory;
-import liquibase.database.jvm.JdbcConnection;
-import liquibase.resource.ClassLoaderResourceAccessor;
+import br.com.gems.tenant.migration.TenantSchemaMigrator;
+import br.com.gems.tenant.migration.TenantSchemaSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -20,83 +12,72 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Migra, no arranque, os schemas das organizações devolvidas por uma consulta SQL configurada.
+ * <p>
+ * <strong>Caminho anterior, preservado.</strong> Quem declara {@code gems.tenant.client-query} continua
+ * atendido: nenhuma API pública sai nesta rodada. Para código novo, o caminho é
+ * {@link TenantSchemaSource} com {@code migration.TenantMigrationCoordinator} — declarar a lista de
+ * schemas esperados em Java é mais testável do que embutir uma consulta numa propriedade, e o
+ * coordenador ainda avisa sobre schema órfão. Os dois nunca correm juntos: a autoconfiguração só
+ * registra este quando não há {@link TenantSchemaSource}.
+ * </p>
+ * <p>
+ * <strong>Duas correções.</strong> O prefixo vem de {@link TenantSchemaNaming} — esta classe usava
+ * {@code client_tenant_} enquanto os outros dois colaboradores usavam {@code instituicao_}, e a
+ * consequência era migrar num schema e servir tráfego de outro, sem erro em lugar algum. E a falha de
+ * migração passa a <strong>interromper o arranque</strong>: antes ela era registrada em
+ * {@code log.error} e o boot seguia, deixando a aplicação atendendo sobre um schema meio migrado.
+ * </p>
+ */
 @Slf4j
-@Component
-@ConditionalOnProperty(name = "gems.tenant.enabled", havingValue = "true")
 public class MultiTenantLiquibaseConfig implements InitializingBean {
 
     private final DataSource dataSource;
+    private final TenantSchemaNaming naming;
+    private final TenantSchemaMigrator migrator;
+    private final String clientQuery;
 
-    @Value("${gems.tenant.schema-prefix:client_tenant_}")
-    private String schemaPrefix;
-
-    @Value("${gems.tenant.client-query}")
-    private String getClientsQuery;
-
-    @Value("${gems.tenant.liquibase.changelog}")
-    private String tenantChangelogPath;
-
-    public MultiTenantLiquibaseConfig(DataSource dataSource) {
+    public MultiTenantLiquibaseConfig(DataSource dataSource, TenantSchemaNaming naming,
+            TenantSchemaMigrator migrator, String clientQuery) {
         this.dataSource = dataSource;
+        this.naming = naming;
+        this.migrator = migrator;
+        this.clientQuery = clientQuery;
     }
 
     @Override
-    public void afterPropertiesSet() throws Exception {
-        log.info("Starting Liquibase migrations for all tenants...");
-        List<String> tenants = getTenantsFromDatabase();
-
-        for (String tenant : tenants) {
-            runLiquibaseForTenant(tenant);
+    public void afterPropertiesSet() {
+        List<String> aliases = aliasesDoBanco();
+        for (String alias : aliases) {
+            migrator.migrate(naming.schemaFor(alias));
         }
-
-        log.info("Liquibase migrations for all tenants completed.");
+        log.info("event=TENANT_MIGRATION_BATCH_COMPLETED tenants={} modulo=gems-jpa-multi-tenant", aliases.size());
     }
 
-    private List<String> getTenantsFromDatabase() {
-        List<String> tenants = new ArrayList<>();
+    private List<String> aliasesDoBanco() {
+        List<String> aliases = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(getClientsQuery)) {
+                Statement statement = connection.createStatement();
+                ResultSet resultado = statement.executeQuery(clientQuery)) {
 
-            while (rs.next()) {
-                String sigla = rs.getString(1);
-                if (sigla != null && !sigla.isBlank()) {
-                    tenants.add(sigla.trim().toLowerCase());
+            while (resultado.next()) {
+                String alias = resultado.getString(1);
+                if (alias != null && !alias.isBlank()) {
+                    aliases.add(alias.trim().toLowerCase());
                 }
             }
-
-        } catch (Exception e) {
-            // Falha rápida: se não conseguimos listar os tenants, as migrações não serão aplicadas
-            // e o estado do banco ficaria silenciosamente inconsistente. Melhor abortar o boot.
-            throw new IllegalStateException(
-                    "Failed to load tenants from database using gems.tenant.client-query. "
-                            + "Multi-tenant Liquibase migrations cannot proceed.", e);
+        } catch (Exception excecao) {
+            // Falha rápida: sem a lista de organizações, as migrações não seriam aplicadas e o banco
+            // ficaria silenciosamente atrás do código. Abortar o boot é o comportamento correto.
+            throw new IllegalStateException("Falha ao carregar as organizações por gems.tenant.client-query. "
+                    + "As migrações multi-tenant não podem prosseguir.", excecao);
         }
 
-        if (tenants.isEmpty()) {
-            log.warn("No tenants returned by gems.tenant.client-query. No tenant migrations will be applied.");
+        if (aliases.isEmpty()) {
+            log.warn("event=TENANT_MIGRATION_EMPTY organizacao={} causa=gems.tenant.client-query sem resultados "
+                    + "modulo=gems-jpa-multi-tenant", TenantLogFields.ORGANIZACAO_AUSENTE);
         }
-        return tenants;
-    }
-
-    private void runLiquibaseForTenant(String tenant) {
-        String schemaName = schemaPrefix + tenant;
-        log.info("Running Liquibase for schema: {}", schemaName);
-
-        try (Connection connection = dataSource.getConnection()) {
-            Database database = DatabaseFactory.getInstance()
-                    .findCorrectDatabaseImplementation(new JdbcConnection(connection));
-
-            database.setDefaultSchemaName(schemaName);
-            database.setLiquibaseSchemaName(schemaName);
-
-            try (Liquibase liquibase = new Liquibase(tenantChangelogPath, new ClassLoaderResourceAccessor(), database)) {
-                liquibase.update(new Contexts(), new LabelExpression());
-            }
-
-            log.info("Liquibase migration completed for schema: {}", schemaName);
-        } catch (Exception e) {
-            log.error("Liquibase execution failed for schema: {}", schemaName, e);
-        }
+        return aliases;
     }
 }

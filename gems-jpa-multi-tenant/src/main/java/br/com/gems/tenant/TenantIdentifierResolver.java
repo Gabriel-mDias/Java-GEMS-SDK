@@ -1,7 +1,6 @@
 package br.com.gems.tenant;
 
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
-import org.springframework.stereotype.Component;
 
 /**
  * Resolvedor de Identificador do Tenant do Hibernate.
@@ -10,7 +9,6 @@ import org.springframework.stereotype.Component;
  * ler ou gravar dados no cenário atual de transação.
  * </p>
  */
-@Component
 public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver<String> {
 
     @Override

@@ -3,30 +3,52 @@ package br.com.gems.tenant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.engine.jdbc.connections.spi.MultiTenantConnectionProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Provedor de conexões customizado do Hibernate para a estratégia de Multi-Tenancy baseada em Schemas.
+ * Provedor de conexões do Hibernate para multi-tenancy por schema.
  * <p>
- * O Hibernate utiliza esta classe para solicitar uma conexão JDBC. Ao solicitar a conexão,
- * este provedor altera fisicamente o {@code schema} da conexão para o schema referente ao tenant atual,
- * isolando totalmente os dados em nível de banco de dados.
+ * A cada conexão pedida, troca fisicamente o schema para o da organização em contexto, isolando os
+ * dados no nível do banco.
  * </p>
+ * <p>
+ * <strong>Duas correções de isolamento nesta rodada.</strong>
+ * </p>
+ * <ol>
+ *   <li><strong>Sem rota implícita para {@code public}.</strong> A versão anterior comparava o
+ *       identificador com a constante de tenant padrão e, quando batia, roteava para o schema
+ *       {@code public}. Como o contexto vazio <em>devolvia</em> essa mesma constante, todo acesso sem
+ *       escopo caía ali sem erro. O caminho global agora existe, mas só para quem o declarou
+ *       (MT-6).</li>
+ *   <li><strong>A conexão volta como saiu</strong> (MT-7). A versão anterior devolvia a conexão ao
+ *       schema {@code public} — um destino fixo que só era certo por coincidência. Guardamos o schema
+ *       que a conexão tinha ao sair do {@link DataSource} e restauramos esse. Sem isso, conexão
+ *       devolvida ao pool com schema de organização serve o próximo tomador que não trocar o schema, e
+ *       o vazamento acontece sem que ninguém tenha escrito uma linha errada.</li>
+ * </ol>
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class SchemaMultiTenantConnectionProvider implements MultiTenantConnectionProvider<String> {
 
     private final DataSource dataSource;
+    private final TenantSchemaNaming naming;
 
-    @Value("${gems.tenant.schema-prefix:instituicao_}")
-    private String schemaPrefix;
+    /**
+     * O schema original de cada conexão em uso, para restaurá-lo na devolução.
+     * <p>
+     * A chave é a instância da conexão. O Hibernate garante o par
+     * {@code getConnection}/{@code releaseConnection} para a mesma instância, e a entrada é removida na
+     * devolução — inclusive quando a restauração falha, para que uma conexão descartada não deixe
+     * resíduo no mapa.
+     * </p>
+     */
+    private final Map<Connection, String> schemaOriginal = new ConcurrentHashMap<>();
 
     @Override
     public Connection getAnyConnection() throws SQLException {
@@ -39,30 +61,35 @@ public class SchemaMultiTenantConnectionProvider implements MultiTenantConnectio
     }
 
     /**
-     * Obtém uma conexão com o banco de dados já setada no schema correto do tenant.
+     * Uma conexão já apontada para o schema do contexto atual.
      *
-     * @param tenantIdentifier O identificador do tenant, fornecido pelo {@link TenantIdentifierResolver}.
-     * @return Uma {@link Connection} JDBC pronta para uso no contexto do tenant.
-     * @throws SQLException Se não for possível obter a conexão ou alterar o schema.
+     * @param tenantIdentifier o identificador vindo de {@link TenantIdentifierResolver} — o alias da
+     *                         organização, ou {@link JpaTenantContext#GLOBAL_TENANT_IDENTIFIER} em
+     *                         escopo global. Nunca é nome de schema.
      */
     @Override
     public Connection getConnection(String tenantIdentifier) throws SQLException {
         Connection connection = getAnyConnection();
+        schemaOriginal.put(connection, connection.getSchema());
 
-        if (JpaTenantContext.DEFAULT_TENANT.equals(tenantIdentifier)) {
-            connection.setSchema(JpaTenantContext.DEFAULT_TENANT);
-        } else {
-            String schemaName = schemaPrefix + TenantIdentifierValidator.sanitize(tenantIdentifier);
-            connection.setSchema(schemaName);
-        }
+        String schema = JpaTenantContext.GLOBAL_TENANT_IDENTIFIER.equals(tenantIdentifier)
+                ? naming.globalSchema()
+                : naming.schemaFor(tenantIdentifier);
 
+        connection.setSchema(schema);
         return connection;
     }
 
     @Override
     public void releaseConnection(String tenantIdentifier, Connection connection) throws SQLException {
-        connection.setSchema(JpaTenantContext.DEFAULT_TENANT);
-        releaseAnyConnection(connection);
+        String original = schemaOriginal.remove(connection);
+        try {
+            if (original != null) {
+                connection.setSchema(original);
+            }
+        } finally {
+            releaseAnyConnection(connection);
+        }
     }
 
     @Override
