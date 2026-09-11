@@ -33,7 +33,7 @@ public class ExceptionResponseDTO {
     private List<String> detalhes;
 
     /**
-     * Construtor da forma anterior a 2.1.0, preservado porque {@code @AllArgsConstructor}
+     * Construtor da forma anterior a 3.0.0, preservado porque {@code @AllArgsConstructor}
      * passou a gerar uma assinatura maior. Consumidor que já o chamava continua compilando.
      */
     public ExceptionResponseDTO( LocalDateTime occurrenceTime, ErrorTypeEnum errorType, String message,
