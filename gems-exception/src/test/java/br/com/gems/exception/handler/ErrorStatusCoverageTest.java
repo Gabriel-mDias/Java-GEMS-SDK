@@ -1,12 +1,14 @@
 package br.com.gems.exception.handler;
 
 import br.com.gems.exception.exception.BusinessException;
+import br.com.gems.exception.exception.ConflictException;
 import br.com.gems.exception.exception.ExternalServiceException;
 import br.com.gems.exception.exception.handler.AuthorizationExceptionHandler;
 import br.com.gems.exception.exception.handler.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -14,7 +16,9 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,6 +64,28 @@ class ErrorStatusCoverageTest {
         pilha.perform( get( "/autorizacao" ) )
                 .andExpect( status().isForbidden() )
                 .andExpect( jsonPath( "$.errorType" ).value( "ACESSO_NEGADO" ) );
+    }
+
+    @Test
+    void conflitoComOEstadoAtualDevolve409() throws Exception {
+        pilha.perform( get( "/conflito" ) )
+                .andExpect( status().isConflict() )
+                .andExpect( jsonPath( "$.codigo" ).value( "ULTIMO_GESTOR_HABILITADO" ) );
+    }
+
+    @Test
+    void enderecoNaoMapeadoDevolve404() throws Exception {
+        pilha.perform( get( "/nao-existe" ) )
+                .andExpect( status().isNotFound() )
+                .andExpect( jsonPath( "$.codigo" ).value( "RECURSO_NAO_ENCONTRADO" ) );
+    }
+
+    @Test
+    void parametroEmFormatoInvalidoDevolve400() throws Exception {
+        pilha.perform( get( "/tipo/abc" ) )
+                .andExpect( status().isBadRequest() )
+                .andExpect( jsonPath( "$.errorType" ).value( "VALIDACAO" ) )
+                .andExpect( jsonPath( "$.codigo" ).value( "PARAMETRO_INVALIDO" ) );
     }
 
     @Test
@@ -109,6 +135,25 @@ class ErrorStatusCoverageTest {
         @GetMapping( "/externo" )
         public void externo() {
             throw new ExternalServiceException( "keycloak", "Serviço temporariamente indisponível" );
+        }
+
+        @GetMapping( "/conflito" )
+        public void conflito() {
+            throw new ConflictException( "Não é possível desabilitar o último gestor",
+                    "ULTIMO_GESTOR_HABILITADO" );
+        }
+
+        /**
+         * Lançada à mão: no MockMvc standalone não há o handler de recursos estáticos que, na
+         * aplicação real, é quem lança esta exceção para um endereço não mapeado.
+         */
+        @GetMapping( "/nao-existe" )
+        public void naoExiste() throws NoResourceFoundException {
+            throw new NoResourceFoundException( HttpMethod.GET, "/nao-existe", "/nao-existe" );
+        }
+
+        @GetMapping( "/tipo/{id}" )
+        public void tipo( @PathVariable Long id ) {
         }
 
     }

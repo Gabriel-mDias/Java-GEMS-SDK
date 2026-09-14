@@ -24,9 +24,10 @@ import java.time.LocalDateTime;
  * está autenticado manda o frontend a um fluxo de login que não resolve nada.
  * </p>
  * <p>
- * Trata {@link AccessDeniedException}, a raiz da família — inclusive o que sobe de
- * {@code @PreAuthorize}. Quem já registrava o {@code SecurityExceptionHandler} à mão continua com
- * o comportamento dele, porque ali o tipo é mais específico e o Spring prefere o mais específico.
+ * Trata {@link AccessDeniedException}, a raiz da família — inclusive
+ * {@code AuthorizationDeniedException}, o que sobe de {@code @PreAuthorize}. Desde a 3.1.0 nenhum
+ * handler da SDK é mais específico que este para essa família: o 401 que o
+ * {@code SecurityExceptionHandler} dava a {@code AuthorizationDeniedException} saiu.
  * </p>
  */
 @Slf4j
@@ -42,7 +43,7 @@ public class AuthorizationExceptionHandler {
                 .occurrenceTime( LocalDateTime.now() )
                 .errorType( ErrorTypeEnum.ACESSO_NEGADO )
                 .message( "Você não possui acesso para este serviço!" )
-                .path( request.getServletPath() )
+                .path( request.getRequestURI() )
                 .method( request.getMethod() )
                 .build();
 

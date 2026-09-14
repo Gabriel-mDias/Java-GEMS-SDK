@@ -27,7 +27,7 @@
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.0.0</version>
+            <version>3.1.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
