@@ -27,7 +27,7 @@ class GlobalExceptionHandlerTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         handler = new GlobalExceptionHandler();
-        when(request.getServletPath()).thenReturn("/api/test");
+        when(request.getRequestURI()).thenReturn("/api/test");
         when(request.getMethod()).thenReturn("GET");
     }
 

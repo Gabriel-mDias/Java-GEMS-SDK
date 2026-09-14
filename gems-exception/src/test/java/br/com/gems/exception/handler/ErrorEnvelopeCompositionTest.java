@@ -37,7 +37,7 @@ class ErrorEnvelopeCompositionTest {
     void prepararHandler() {
         MockitoAnnotations.openMocks( this );
         handler = new GlobalExceptionHandler();
-        when( request.getServletPath() ).thenReturn( "/api/matriculas" );
+        when( request.getRequestURI() ).thenReturn( "/api/matriculas" );
         when( request.getMethod() ).thenReturn( "POST" );
     }
 

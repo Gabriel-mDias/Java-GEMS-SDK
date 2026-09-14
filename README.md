@@ -17,7 +17,7 @@ Se você está usando uma IA no seu projeto consumidor ou se você é uma IA len
 - **`gems-utils`**: Classes utilitárias puras de data, e-mail, documentos, etc.
 - **`gems-model-mapper`**: Configuração e integração do ModelMapper. **Continua de primeira classe e suportado** — não é depreciado e não sai da SDK.
 - **`gems-mapstruct`** *(3.0.0)*: A configuração de mapeamento **recomendada para código novo** — `GemsMappingConfig`, um `@MapperConfig` compartilhado com `componentModel = "spring"` e `unmappedTargetPolicy = ERROR`. Campo de destino sem origem reprova a compilação nomeando o campo. Recomendado, não obrigatório.
-- **`gems-exception`**: Configuração Global de Exceções (`GlobalExceptionHandler` e suporte a Spring Security de forma opcional). Desde a 3.0.0 devolve um envelope de erro uniforme e cobre **400** (validação), **403** (autorização negada) e **502** (serviço externo).
+- **`gems-exception`**: Configuração Global de Exceções (`GlobalExceptionHandler` e suporte a Spring Security de forma opcional). Desde a 3.0.0 devolve um envelope de erro uniforme e cobre **400** (validação), **403** (autorização negada) e **502** (serviço externo). A **3.1.0** fecha o que caía no 500: **404** para endereço não mapeado, **400** para parâmetro em formato inválido, **409** para `ConflictException` (nova) — e a negação de `@PreAuthorize` responde **403** por um único handler (o método que declarava 401 saiu). Tabela completa em [`RELEASE-NOTES-3.1.0.md`](RELEASE-NOTES-3.1.0.md).
 - **`gems-jpa`**: Classes bases para repositório (`BaseCustomJpaRepository`). Auto-configuração ativável por `gems.jpa.enabled=true`.
 - **`gems-jpa-multi-tenant`**: Motor de multi-tenancy baseado em Schemas e provedores de conexão customizados do Hibernate. **A 3.0.0 muda o comportamento observável deste módulo** — veja a seção do módulo abaixo antes de subir de versão.
 - **`gems-auditing`** *(3.0.0)*: Trilha de auditoria no nível do Hibernate, **opt-in por entidade** com `@Auditable` e ativável por `gems.auditing.enabled=true`. O domínio nunca chama o escritor: um `Integrator` do Hibernate instala o listener. Pontos de extensão `@ConditionalOnMissingBean`: `AuditActorProvider` (padrão `SISTEMA`) e `AuditTrailDestination`. `@SensitiveField` registra que o campo mudou **sem** registrar os valores.
@@ -56,7 +56,7 @@ Se você está usando uma IA no seu projeto consumidor ou se você é uma IA len
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.0.0</version>
+            <version>3.1.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -258,7 +258,7 @@ Adicione em `<dependencyManagement>` — isso evita declarar `<version>` em cada
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.0.0</version>
+            <version>3.1.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>

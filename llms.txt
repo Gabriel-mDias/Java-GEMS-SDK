@@ -10,9 +10,9 @@ It follows the llmstxt.org convention and is kept up-to-date with the public API
 GEMS SDK (`br.com.gems:gems-sdk`) is a multi-module Maven library of shared, reusable resources consumed by GEMS microservices.
 It is published as JARs to GitHub Packages — it is NOT a runnable application.
 
-- **Current version:** 3.0.0
+- **Current version:** 3.1.0
 - **Java:** 21
-- **Spring Boot parent:** 4.1.0
+- **Spring Boot parent:** 4.1.1
 - **GroupId:** `br.com.gems`
 - **GitHub Packages URL:** `https://maven.pkg.github.com/Gabriel-mDias/Java-GEMS-SDK`
 - **Architecture:** Spring Boot starter-style auto-configuration — consumers add the dependency and optionally set a property; no `@Import` or `@ComponentScan` needed. Three modules ship no auto-configuration on purpose (`gems-mapstruct`, `gems-keycloak-admin`, `gems-security-authorization`) — see their sections.
@@ -34,6 +34,10 @@ In **fifteen of the sixteen modules** no existing public API changed signature o
 Its **public API is also source-incompatible**, which is why "additive" does not describe this module: `JpaTenantContext` is now `final` with a private constructor (was an extensible/instantiable class); its `public static final String DEFAULT_TENANT = "public"` was **removed** (fail-closed leaves no default to name); and `MultiTenantLiquibaseConfig` moved from `MultiTenantLiquibaseConfig(DataSource)` plus `@Value` fields to a four-argument constructor and is no longer a `@Component` — it is wired by configuration. Code written against `2.0.x` of this module does not compile against `3.0.0`.
 
 `gems-exception` gained a uniform error envelope and handlers for 400 (validation), 403 (`AccessDeniedException`) and 502 (external service), additively.
+
+### What 3.1.0 adds and changes
+
+`gems-exception` only, plus the dependency bumps (Spring Boot 4.1.1, springdoc 3.1.1, AWS SDK 2.54.16, keycloak-admin-client 26.0.12). Additive except for one removal: the `SecurityExceptionHandler` method that mapped `AuthorizationDeniedException` (what `@PreAuthorize` throws) to **401** is gone — the exception is an `AccessDeniedException` and `AuthorizationExceptionHandler` answers **403** for the whole family. New: **404** for `NoResourceFoundException` (fixed message, never echoes the path), **400** for `MethodArgumentTypeMismatchException` (names the parameter, never the value), **409** for the new `ConflictException` (extends `BusinessException`; `codigo`/`detalhes` travel with `message`). `path` is now `request.getRequestURI()` in every handler (was `getServletPath()`, which MockMvc returns empty). See `RELEASE-NOTES-3.1.0.md`.
 
 ---
 
@@ -131,7 +135,7 @@ Authentication in `~/.m2/settings.xml`:
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.0.0</version>
+            <version>3.1.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -271,6 +275,11 @@ new BusinessException(List<String> messages)       // multi-error
 // Authentication failure → HTTP 401
 new SecurityException(String message)
 
+// Conflict with current state → HTTP 409   (3.1.0) — extends BusinessException
+new ConflictException(String message, String codigo)
+new ConflictException(String message, String codigo, List<String> detalhes)
+new ConflictException(ErrorTypeEnum type, String message, String codigo, List<String> detalhes)
+
 // External service unavailable → HTTP 502   (3.0.0)
 new ExternalServiceException(String servico, String message)
 new ExternalServiceException(String servico, String message, Throwable causa)
@@ -307,16 +316,19 @@ ErrorTypeEnum.SERVICO_INDISPONIVEL // external service down (502)   (3.0.0)
 
 | Exception | HTTP Status |
 |---|---|
+| `ConflictException` | **409** (3.1.0) — `codigo`/`detalhes` alongside `message` |
 | `BusinessException` | 400 |
 | `IllegalArgumentException` | 400 |
 | `MethodArgumentNotValidException` | 400 (3.0.0) |
+| `MethodArgumentTypeMismatchException` | **400** (3.1.0) — `VALIDACAO`, `codigo=PARAMETRO_INVALIDO`, names the parameter, never the value |
+| `NoResourceFoundException` | **404** (3.1.0) — `FALHA`, `codigo=RECURSO_NAO_ENCONTRADO`, fixed message, never echoes the path |
 | `SecurityException` | 401 |
-| `BadCredentialsException`, `AuthorizationDeniedException` | 401 (`SecurityExceptionHandler`) |
-| `AccessDeniedException` | **403** (3.0.0 — `AuthorizationExceptionHandler`) |
+| `BadCredentialsException` | 401 (`SecurityExceptionHandler`) |
+| `AccessDeniedException`, incl. `AuthorizationDeniedException` (`@PreAuthorize`) | **403** (`AuthorizationExceptionHandler`; since 3.1.0 no SDK handler maps `AuthorizationDeniedException` to 401) |
 | `ExternalServiceException` | **502** (3.0.0) |
 | `Exception` (catch-all) | 500 |
 
-403, not 401, for `AccessDeniedException`: whoever reached the handler is authenticated; what is missing is authorization.
+403, not 401, for `AccessDeniedException`: whoever reached the handler is authenticated; what is missing is authorization. 409, not 400, for `ConflictException`: the request is well-formed; the current state refuses it, and resending the same body will not help.
 
 ---
 
