@@ -4,7 +4,7 @@ Cada tarefa registra tier/esforço/risco. Delegados recebem pacote fechado e nã
 
 ## SDK-AUD — 10 tarefas
 
-- [ ] T001 [orquestrador/medium/alto] Congelar `contracts/auditing-3.2.0.md`; risco de API/binário.
+- [x] T001 [orquestrador/medium/alto] Congelar `contracts/auditing-3.2.0.md`; risco de API/binário. Aprovado no portão SDK-P00 em 2026-09-21.
 - [ ] T002 [especializado/medium/alto] Test-first: ampliar `gems-auditing/src/test/java/br/com/gems/auditing/SuperficiePublicaTest.java` para compatibilidade e novos pontos.
 - [ ] T003 [especializado/medium/médio] Criar testes de normalização/default do contexto em `gems-auditing/src/test/java/br/com/gems/auditing/AuditContextTest.java`.
 - [ ] T004 [especializado/medium/alto] Criar `AuditContext.java`, `AuditContextProvider.java` e `EmptyAuditContextProvider.java` públicos com Javadoc.
@@ -17,7 +17,7 @@ Cada tarefa registra tier/esforço/risco. Delegados recebem pacote fechado e nã
 
 ## SDK-KC — 12 tarefas
 
-- [ ] T011 [orquestrador/medium/alto] Congelar `contracts/keycloak-admin-3.2.0.md`; risco de API externa.
+- [x] T011 [orquestrador/medium/alto] Congelar `contracts/keycloak-admin-3.2.0.md`; risco de API externa. Aprovado no portão SDK-P00 em 2026-09-21.
 - [ ] T012 [especializado/medium/alto] Criar testes de compilação/reflexão preservando `KeycloakAdminGateway` 3.1.0.
 - [ ] T013 [especializado/medium/médio] Criar `KeycloakUserSnapshot.java` com cópias imutáveis e validação.
 - [ ] T014 [especializado/medium/alto] Criar `KeycloakUserLifecycleGateway.java` sem tipos do cliente Keycloak.

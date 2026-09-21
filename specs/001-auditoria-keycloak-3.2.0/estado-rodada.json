@@ -4,17 +4,17 @@
     "canonical":  {
                       "roteiro":  {
                                       "path":  "roteiro.md",
-                                      "sha256":  "7014f32de9f463e2dbe60e093ec3eb9d071bd9a7acb46ad016f9e259796e83e8"
+                                      "sha256":  "9713d6be6bc9d4ae8dcba0b9b10aae07e03da1162cee32889f9033cf8c4f51b1"
                                   },
                       "tasks":  {
                                     "path":  "tasks.md",
-                                    "sha256":  "fa39c93215cf0efe35dc656bc9e014c75ad731b182c6fde5d73d4a648fe040c5"
+                                    "sha256":  "80bd27f086138ad39b5656585b9d0e5ed46ae26ce65394548f7f3cd0552b0a94"
                                 }
                   },
     "phase":  {
-                  "number":  2,
-                  "name":  "Plan",
-                  "signal":  "analise registrada sem portao aprovado"
+                  "number":  3,
+                  "name":  "SDD",
+                  "signal":  "portao aprovado e tasks abertas"
               },
     "evidence":  {
                      "canonical":  [
@@ -25,9 +25,8 @@
                  },
     "tasks":  {
                   "total":  28,
-                  "completed":  0,
+                  "completed":  2,
                   "openIds":  [
-                                  "T001",
                                   "T002",
                                   "T003",
                                   "T004",
@@ -37,7 +36,6 @@
                                   "T008",
                                   "T009",
                                   "T010",
-                                  "T011",
                                   "T012",
                                   "T013",
                                   "T014",
@@ -58,7 +56,8 @@
                               ]
               },
     "nextRequiredReads":  [
-                              "roteiro.md (secoes 2, 8, 9 e Criterios de aprovacao)",
-                              ".claude/skills/rodada-sdd/references/fase-2-plan.md"
+                              "tasks.md",
+                              "roteiro.md (secao 9/checkpoint aplicavel)",
+                              ".claude/skills/rodada-sdd/references/fase-3-sdd.md"
                           ]
 }

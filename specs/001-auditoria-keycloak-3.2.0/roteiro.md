@@ -1,6 +1,6 @@
 # Roteiro — Java GEMS SDK 3.2.0
 
-**Status**: planejamento concluído; implementação bloqueada pelo portão humano sobre estes artefatos.
+**Status**: planejamento aprovado; fase 3 liberada para execução sequencial, começando por SDK-AUD.
 
 ## 1. Objetivo e escopo
 
@@ -63,16 +63,22 @@ Cobertura: 18/18 FR e 6/6 SC; zero achado CRITICAL pendente e zero violação da
 | 3 | `/speckit-plan` | concluído em 2026-09-21 | `plan.md`, `research.md`, dois contratos e quickstart |
 | 4 | `/speckit-tasks` | concluído em 2026-09-21 | 28 tarefas: 10 AUD, 12 KC, 6 REL |
 | 5 | `/speckit-analyze` | concluído em 2026-09-21 | 0 CRITICAL pendente; 18/18 FR e 6/6 SC cobertos |
-| 6 | `roteiro.md` | aguardando aprovação | nenhuma linha Java antes do portão |
+| 6 | `roteiro.md` | aprovado em 2026-09-21 | SDK-AUD liberado; SDK-KC e SDK-REL mantêm a ordem dos checkpoints |
 
 ## 8. Critérios de aprovação
 
 ### Para liberar implementação
 
-- [ ] A superfície pública dos dois contratos está aceita.
-- [ ] O opt-in de colunas e o default 3.1.0 estão aceitos.
-- [ ] A divisão 10/12/6 e os gates/mutações são suficientes.
-- [ ] A classificação 3.2.0 MINOR condicionada ao smoke está aceita.
+- [x] A superfície pública dos dois contratos está aceita.
+- [x] O opt-in de colunas e o default 3.1.0 estão aceitos.
+- [x] A divisão 10/12/6 e os gates/mutações são suficientes.
+- [x] A classificação 3.2.0 MINOR condicionada ao smoke está aceita.
+
+> ✅ **PORTÃO SDK-P00 APROVADO pelo product owner em 2026-09-21.** “aprovo” confirma as decisões
+> da seção 2, a superfície pública aditiva dos contratos de auditoria e Keycloak, o opt-in seguro
+> para schemas 3.1.0, o raio de impacto, a divisão 10/12/6 e a classificação 3.2.0 MINOR condicionada
+> ao consumer smoke. **A fase 3 está liberada, começando somente por SDK-AUD.** Isto não aprova a
+> release, a publicação, SDK-KC antecipadamente nem qualquer homologação do sample ou da rodada 010.
 
 ### Para concluir
 
