@@ -18,17 +18,17 @@ Cada tarefa registra tier/esforço/risco. Delegados recebem pacote fechado e nã
 ## SDK-KC — 12 tarefas
 
 - [x] T011 [orquestrador/medium/alto] Congelar `contracts/keycloak-admin-3.2.0.md`; risco de API externa. Aprovado no portão SDK-P00 em 2026-09-21.
-- [ ] T012 [especializado/medium/alto] Criar testes de compilação/reflexão preservando `KeycloakAdminGateway` 3.1.0.
-- [ ] T013 [especializado/medium/médio] Criar `KeycloakUserSnapshot.java` com cópias imutáveis e validação.
-- [ ] T014 [especializado/medium/alto] Criar `KeycloakUserLifecycleGateway.java` sem tipos do cliente Keycloak.
-- [ ] T015 [especializado/medium/alto] Criar `KeycloakRealmRoleGateway.java` com semântica idempotente/aditiva.
-- [ ] T016 [especializado/high/alto] Test-first: ampliar `KeycloakAdminRestClientTest.java` para leitura, update, enable/disable e delete.
-- [ ] T017 [especializado/high/alto] Test-first: provar compensação de senha e falha suprimida.
-- [ ] T018 [especializado/high/alto] Test-first: provar snapshot/restauração de atributos e grupos, join/leave idempotentes.
-- [ ] T019 [especializado/high/alto] Implementar lifecycle/compensações em `KeycloakAdminRestClient.java`.
-- [ ] T020 [especializado/high/alto] Test-first e implementar criação/composição de roles diretas em `KeycloakAdminRestClient.java`.
-- [ ] T021 [especializado/medium/alto] Criar teste de composição consumindo `AuthorizationCatalog` em `gems-security-authorization/src/test/java/br/com/gems/security/authorization/KeycloakRoleCompositionContractTest.java`.
-- [ ] T022 [orquestrador/medium/alto] Mutar create/enable/delete/snapshot/grupos/roles, restaurar e repetir gate dos dois módulos.
+- [x] T012 [especializado/medium/alto] Criar testes de compilação/reflexão preservando `KeycloakAdminGateway` 3.1.0.
+- [x] T013 [especializado/medium/médio] Criar `KeycloakUserSnapshot.java` com cópias imutáveis e validação.
+- [x] T014 [especializado/medium/alto] Criar `KeycloakUserLifecycleGateway.java` sem tipos do cliente Keycloak.
+- [x] T015 [especializado/medium/alto] Criar `KeycloakRealmRoleGateway.java` com semântica idempotente/aditiva.
+- [x] T016 [especializado/high/alto] Test-first: ampliar `KeycloakAdminRestClientTest.java` para leitura, update, enable/disable e delete.
+- [x] T017 [especializado/high/alto] Test-first: provar compensação de senha e falha suprimida.
+- [x] T018 [especializado/high/alto] Test-first: provar snapshot/restauração de atributos e grupos, join/leave idempotentes.
+- [x] T019 [especializado/high/alto] Implementar lifecycle/compensações em `KeycloakAdminRestClient.java`.
+- [x] T020 [especializado/high/alto] Test-first e implementar criação/composição de roles diretas em `KeycloakAdminRestClient.java`.
+- [x] T021 [especializado/medium/alto] Criar teste de composição consumindo `AuthorizationCatalog` em `gems-security-authorization/src/test/java/br/com/gems/security/authorization/KeycloakRoleCompositionContractTest.java`.
+- [x] T022 [orquestrador/medium/alto] Mutar create/enable/delete/snapshot/grupos/roles, restaurar e repetir gate dos dois módulos.
 
 ## SDK-REL — 6 tarefas
 

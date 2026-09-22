@@ -1,6 +1,6 @@
 # Roteiro — Java GEMS SDK 3.2.0
 
-**Status**: planejamento aprovado; fase 3 liberada para execução sequencial, começando por SDK-AUD.
+**Status**: fase 3 em curso; SDK-AUD e SDK-KC verdes, próximo checkpoint SDK-REL.
 
 ## 1. Objetivo e escopo
 
@@ -64,7 +64,7 @@ Cobertura: 18/18 FR e 6/6 SC; zero achado CRITICAL pendente e zero violação da
 | 4 | `/speckit-tasks` | concluído em 2026-09-21 | 28 tarefas: 10 AUD, 12 KC, 6 REL |
 | 5 | `/speckit-analyze` | concluído em 2026-09-21 | 0 CRITICAL pendente; 18/18 FR e 6/6 SC cobertos |
 | 6 | `roteiro.md` | aprovado em 2026-09-21 | SDK-AUD liberado; SDK-KC e SDK-REL mantêm a ordem dos checkpoints |
-| 7 | `/speckit-implement` | em curso em 2026-09-21 | **SDK-AUD verde**; próximo checkpoint SDK-KC |
+| 7 | `/speckit-implement` | em curso em 2026-09-21 | **SDK-AUD e SDK-KC verdes**; próximo checkpoint SDK-REL |
 
 **Checkpoint SDK-AUD — verde em 2026-09-21:** T002–T010 concluídas. O contrato ganhou
 `AuditContext`, provider público e default vazio; o SQL 3.1.0 permanece o caminho padrão e as duas
@@ -73,6 +73,17 @@ colunas novas só entram com opt-in. A revisão do orquestrador preservou també
 independentes de id, correlação, opt-in e commit indevido ficaram vermelhas e foram restauradas.
 Gate final: `mvn -B -pl gems-auditing -am test` com **35 testes**, zero falhas/erros/skips;
 `git diff --check` sem erro. Nenhum arquivo fora do pacote foi alterado.
+
+**Checkpoint SDK-KC — verde em 2026-09-21:** T012–T022 concluídas. Três APIs públicas
+aditivas expõem lifecycle, snapshot imutável e roles sem tipos do cliente Keycloak; o gateway 3.1.0
+permanece inalterado. A revisão independente recusou a primeira entrega por cobertura insuficiente,
+sanitização incompleta e conflito concorrente de composição; a reabertura acrescentou as redes,
+preservou o comportamento legado de grupos nulos e fez conflito 409 retornar zero adições.
+Mutações independentes de create, enable, delete, snapshot, grupos e roles ficaram vermelhas e
+foram restauradas por patch inverso. Gate final:
+`mvn -B -pl gems-keycloak-admin,gems-security-authorization -am test` com **118 testes**
+(38 utils + 28 exception + 27 Keycloak + 25 authorization), zero falhas/erros/skips;
+`git diff --check` sem erro. Próximo checkpoint: SDK-REL.
 
 ## 8. Critérios de aprovação
 
