@@ -4,17 +4,17 @@
     "canonical":  {
                       "roteiro":  {
                                       "path":  "roteiro.md",
-                                      "sha256":  "995bc25e00da7eeb3758bd436a223758fe989618483c064f73a1a1cdaabd8212"
+                                      "sha256":  "d37930e5bf7725bf514a96d37dd9823eeb9a973217b57424dc3b3c87a7ac988a"
                                   },
                       "tasks":  {
                                     "path":  "tasks.md",
-                                    "sha256":  "f66041c47b100846f9140cf193197e86dbd67fbf0da5327b7732bed208e0b340"
+                                    "sha256":  "fab525a4fa9bef1982c82c77f8fc1f921dae129c7c7056f23059ca7983b3a37a"
                                 }
                   },
     "phase":  {
-                  "number":  3,
-                  "name":  "SDD",
-                  "signal":  "portao aprovado e tasks abertas"
+                  "number":  4,
+                  "name":  "Homologacao",
+                  "signal":  "portao aprovado e todas as tasks concluidas"
               },
     "evidence":  {
                      "canonical":  [
@@ -25,15 +25,14 @@
                  },
     "tasks":  {
                   "total":  28,
-                  "completed":  26,
+                  "completed":  28,
                   "openIds":  [
-                                  "T027",
-                                  "T028"
+
                               ]
               },
     "nextRequiredReads":  [
+                              "roteiro.md (secao Criterios de aprovacao)",
                               "tasks.md",
-                              "roteiro.md (secao 9/checkpoint aplicavel)",
-                              ".claude/skills/rodada-sdd/references/fase-3-sdd.md"
+                              ".claude/skills/rodada-sdd/references/fase-4-homologacao.md"
                           ]
 }

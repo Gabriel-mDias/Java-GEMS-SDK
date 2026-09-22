@@ -8,6 +8,13 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
     </properties>
+    <repositories>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages - GEMS SDK</name>
+            <url>https://maven.pkg.github.com/Gabriel-mDias/Java-GEMS-SDK</url>
+        </repository>
+    </repositories>
     <dependencyManagement>
         <dependencies>
             <dependency>

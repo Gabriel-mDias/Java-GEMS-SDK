@@ -36,8 +36,8 @@ Cada tarefa registra tier/esforço/risco. Delegados recebem pacote fechado e nã
 - [x] T024 [especializado/medium/médio] Atualizar README, `AI-CONSUMER-GUIDE.md`, `llms.txt`, `CLAUDE.md` e criar `RELEASE-NOTES-3.2.0.md`.
 - [x] T025 [mecânico/low/médio] Executar `mvn versions:set -DnewVersion=3.2.0 -DgenerateBackupPoms=false`; conferir 17 POMs/BOM.
 - [x] T026 [mecânico/high/alto] Executar mutações finais e `mvn -B clean install -DgenerateBackupPoms=false`, contagem >= 186.
-- [ ] T027 [orquestrador/medium/alto] Revisar diff, abrir PR, exigir CI verde, merge e publish identificados.
-- [ ] T028 [mecânico/medium/alto] Resolver quatro coordenadas em cache limpo via BOM; registrar SHA/run/registry e liberar C11.
+- [x] T027 [orquestrador/medium/alto] Revisar diff, abrir PR, exigir CI verde, merge e publish identificados.
+- [x] T028 [mecânico/medium/alto] Resolver quatro coordenadas em cache limpo via BOM; registrar SHA/run/registry e liberar C11.
 
 ## Ordem
 

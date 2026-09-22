@@ -1,6 +1,6 @@
 # Roteiro — Java GEMS SDK 3.2.0
 
-**Status**: fase 3 em curso; SDK-REL local verde, aguardando PR/CI/merge/publicação e resolução limpa.
+**Status**: fase 3 concluída; SDK 3.2.0 publicada e resolvida em cache limpo, C11 liberado.
 
 ## 1. Objetivo e escopo
 
@@ -64,7 +64,7 @@ Cobertura: 18/18 FR e 6/6 SC; zero achado CRITICAL pendente e zero violação da
 | 4 | `/speckit-tasks` | concluído em 2026-09-21 | 28 tarefas: 10 AUD, 12 KC, 6 REL |
 | 5 | `/speckit-analyze` | concluído em 2026-09-21 | 0 CRITICAL pendente; 18/18 FR e 6/6 SC cobertos |
 | 6 | `roteiro.md` | aprovado em 2026-09-21 | SDK-AUD liberado; SDK-KC e SDK-REL mantêm a ordem dos checkpoints |
-| 7 | `/speckit-implement` | em curso em 2026-09-22 | **SDK-REL local verde**; T027/T028 em curso com o orquestrador |
+| 7 | `/speckit-implement` | concluído em 2026-09-22 | **28/28 tarefas verdes**; SDK 3.2.0 publicada e C11 liberado |
 
 **Checkpoint SDK-AUD — verde em 2026-09-21:** T002–T010 concluídas. O contrato ganhou
 `AuditContext`, provider público e default vazio; o SQL 3.1.0 permanece o caminho padrão e as duas
@@ -94,6 +94,14 @@ e foram restauradas. O orquestrador repetiu `mvn -B clean install -DgenerateBack
 `git diff --check` sem erro. T027/T028 permanecem abertas até PR/CI/merge/publicação e resolução
 das quatro coordenadas em cache Maven limpo.
 
+**Fechamento remoto SDK-REL — verde em 2026-09-22:** commit de release `509db83`, PR #35,
+PR Validation `35714217338` e CodeQL `35714217357` verdes; merge `705a6a3`. O workflow
+`Publish to GitHub Packages` `35714599184` publicou os artefatos no registry
+`https://maven.pkg.github.com/Gabriel-mDias/Java-GEMS-SDK`. Em um repositório Maven local vazio,
+o consumer importou `gems-bom:3.2.0`, resolveu `gems-auditing:3.2.0`,
+`gems-keycloak-admin:3.2.0` e `gems-security-authorization:3.2.0` do registry e compilou com exit 0.
+C11 está liberado.
+
 ## 8. Critérios de aprovação
 
 ### Para liberar implementação
@@ -111,7 +119,7 @@ das quatro coordenadas em cache Maven limpo.
 
 ### Para concluir
 
-- [ ] 28 tarefas concluídas.
-- [ ] Consumer smoke 3.1.0 e reator inteiro verdes.
-- [ ] PR/CI/merge/publish identificados.
-- [ ] Quatro coordenadas resolvidas em cache limpo via BOM.
+- [x] 28 tarefas concluídas.
+- [x] Consumer smoke 3.1.0 e reator inteiro verdes.
+- [x] PR/CI/merge/publish identificados.
+- [x] Quatro coordenadas resolvidas em cache limpo via BOM.

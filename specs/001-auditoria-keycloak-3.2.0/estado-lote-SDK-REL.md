@@ -29,13 +29,15 @@ Restaurar individualmente os arquivos listados no pacote; nao usar checkout/rese
 | T026-9 | `leaveRealmGroup` -> `leaveRealmGroupX`; mesmo gate, exit 1; restaurado. |
 | T026-10 | `restoreUser` -> `restoreUserX`; mesmo gate, exit 1; restaurado. |
 | Revisao | Orquestrador repetiu `mvn -B clean install -DgenerateBackupPoms=false`: 212 testes, zero falhas/erros/skips; smoke via BOM 3.2.0 e `git diff --check` sairam 0. |
+| T027 | Commit `509db83`; PR #35; CI `35714217338` e CodeQL `35714217357` verdes; merge `705a6a3`; publish `35714599184` verde. |
+| T028 | Cache Maven vazio resolveu BOM, auditing, Keycloak Admin e authorization 3.2.0 em `maven.pkg.github.com/Gabriel-mDias/Java-GEMS-SDK`; compile exit 0. |
 
 ## 3. Em curso
 
 - **Tarefa:** nenhuma
 - **Arquivo:** nao aplicavel
 - **O que ja esta feito nele:** dez mutacoes vermelhas, cada uma restaurada por patch inverso; T024 reparada.
-- **O que falta:** T027/T028 pertencem ao orquestrador.
+- **O que falta:** nada neste checkpoint; C11 esta liberado.
 
 ## 4. Nao iniciado
 
