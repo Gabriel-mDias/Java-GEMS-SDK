@@ -1,5 +1,12 @@
 # GEMS SDK Java — Guia de Consumo para IAs
 
+## Compatibilidade 3.2.0
+
+A release 3.2.0 e MINOR e aditiva. O contexto de auditoria e opt-in e permanece desligado por
+padrao; migre `ID_ACTOR` e `CD_CORRELATION` antes de habilita-lo. Lifecycle, snapshots, grupos e
+roles Keycloak sao expostos por interfaces especializadas. A SDK nao fornece auto-configuracao ou
+credenciais administrativas Keycloak e preserva a superficie 3.1.0.
+
 > Guia condensado e prático para geração de código seguro e aderente ao padrão GEMS.
 > Para a referência completa da API pública (assinaturas, DTOs, snippets), veja [`llms.txt`](llms.txt).
 
@@ -27,7 +34,7 @@
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.1.0</version>
+            <version>3.2.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>

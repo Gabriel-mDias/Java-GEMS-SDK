@@ -35,12 +35,14 @@ final class HibernateAuditListener
 
     private final transient TransactionalAuditWriter writer;
     private final transient AuditActorProvider actors;
+    private final transient AuditContextProvider contexts;
     private final transient AuditTrailDestination destination;
 
     HibernateAuditListener(TransactionalAuditWriter writer, AuditActorProvider actors,
-            AuditTrailDestination destination) {
+            AuditContextProvider contexts, AuditTrailDestination destination) {
         this.writer = writer;
         this.actors = actors;
+        this.contexts = contexts;
         this.destination = destination;
     }
 
@@ -92,7 +94,9 @@ final class HibernateAuditListener
         }
 
         String entidade = persister.getJpaEntityName();
+        AuditActor actor = actors.currentActor();
+        AuditContext context = contexts.currentContext();
         writer.write(session.getJdbcCoordinator().getLogicalConnection().getPhysicalConnection(),
-                destination.schemaFor(entidade), operation, entidade, id, actors.currentActor(), changes);
+                destination.schemaFor(entidade), operation, entidade, id, actor, context, changes);
     }
 }

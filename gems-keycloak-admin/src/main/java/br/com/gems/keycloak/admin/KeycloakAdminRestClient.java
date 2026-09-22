@@ -5,10 +5,13 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import org.springframework.http.MediaType;
 import org.springframework.util.LinkedMultiValueMap;
@@ -31,7 +34,8 @@ import org.springframework.web.client.RestClient;
  * credencial revogada em laço.
  * </p>
  */
-public final class KeycloakAdminRestClient implements KeycloakAdminGateway {
+public final class KeycloakAdminRestClient implements KeycloakAdminGateway, KeycloakUserLifecycleGateway,
+        KeycloakRealmRoleGateway {
 
     private final RestClient client;
     private final KeycloakAdminProperties properties;
@@ -74,9 +78,122 @@ public final class KeycloakAdminRestClient implements KeycloakAdminGateway {
         var body = Map.of( "username", username, "email", email, "enabled", true,
                 "firstName", parts[0], "lastName", parts.length > 1 ? parts[1] : "" );
         var userId = idFrom( post( "/admin/realms/{realm}/users", body ) );
-        put( "/admin/realms/{realm}/users/" + userId + "/reset-password",
-                Map.of( "type", "password", "value", password, "temporary", false ) );
+        try {
+            put( "/admin/realms/{realm}/users/" + userId + "/reset-password",
+                    Map.of( "type", "password", "value", password, "temporary", false ) );
+        } catch ( KeycloakAdminException failure ) {
+            try {
+                exchangeDelete( "/admin/realms/{realm}/users/" + userId );
+            } catch ( KeycloakAdminException compensationFailure ) {
+                failure.addSuppressed( compensationFailure );
+            }
+            throw failure;
+        }
         return new User( userId, name, username, email, true );
+    }
+
+    @Override
+    public Optional<KeycloakUserSnapshot> findUserById( String userId ) {
+        try {
+            return optionalGet( "/admin/realms/{realm}/users/" + userId, UserRepresentation.class )
+                    .map( user -> snapshot( user, listUserGroupIds( userId ) ) );
+        } catch ( KeycloakAdminException exception ) {
+            throw exception;
+        } catch ( RuntimeException exception ) {
+            throw new KeycloakAdminException( "consultar conta", exception );
+        }
+    }
+
+    @Override
+    public KeycloakUserSnapshot snapshotUser( String userId ) {
+        return findUserById( userId ).orElseThrow( () -> new KeycloakAdminException( "obter retrato de conta" ) );
+    }
+
+    @Override
+    public void updateUser( KeycloakUserSnapshot user ) {
+        put( "/admin/realms/{realm}/users/" + user.id(), userDocument( user ) );
+    }
+
+    @Override
+    public void setUserEnabled( String userId, boolean enabled ) {
+        var user = snapshotUser( userId );
+        updateUser( new KeycloakUserSnapshot( user.id(), user.firstName(), user.lastName(), user.username(),
+                user.email(), enabled, user.attributes(), user.groupIds() ) );
+    }
+
+    @Override
+    public void deleteUser( String userId ) {
+        exchangeDelete( "/admin/realms/{realm}/users/" + userId );
+    }
+
+    @Override
+    public Set<String> listUserGroupIds( String userId ) {
+        try {
+            return getRequiredUserGroups( userId ).stream()
+                    .map( GroupRepresentation::id ).collect( java.util.stream.Collectors.toUnmodifiableSet() );
+        } catch ( KeycloakAdminException exception ) {
+            throw exception;
+        } catch ( RuntimeException exception ) {
+            throw new KeycloakAdminException( "listar grupos da conta", exception );
+        }
+    }
+
+    @Override
+    public void joinRealmGroup( String userId, String groupId ) {
+        try {
+            putNoBody( "/admin/realms/{realm}/users/" + userId + "/groups/" + groupId );
+        } catch ( KeycloakAdminException exception ) {
+            if ( !hasStatus( exception, 409 ) ) throw exception;
+        }
+    }
+
+    @Override
+    public void leaveRealmGroup( String userId, String groupId ) {
+        try {
+            exchangeDelete( "/admin/realms/{realm}/users/" + userId + "/groups/" + groupId );
+        } catch ( KeycloakAdminException exception ) {
+            if ( !hasStatus( exception, 404 ) ) throw exception;
+        }
+    }
+
+    @Override
+    public void restoreUser( KeycloakUserSnapshot snapshot ) {
+        updateUser( snapshot );
+        var current = new HashSet<>( listUserGroupIds( snapshot.id() ) );
+        current.stream().filter( groupId -> !snapshot.groupIds().contains( groupId ) )
+                .forEach( groupId -> leaveRealmGroup( snapshot.id(), groupId ) );
+        snapshot.groupIds().stream().filter( groupId -> !current.contains( groupId ) )
+                .forEach( groupId -> joinRealmGroup( snapshot.id(), groupId ) );
+    }
+
+    @Override
+    public boolean ensureRealmRole( String name, String description ) {
+        if ( optionalGet( "/admin/realms/{realm}/roles/" + name, Map.class ).isPresent() ) return false;
+        try {
+            postNoLocation( "/admin/realms/{realm}/roles", Map.of( "name", name, "description", description ) );
+            return true;
+        } catch ( KeycloakAdminException exception ) {
+            if ( hasStatus( exception, 409 ) ) return false;
+            throw exception;
+        }
+    }
+
+    @Override
+    public int ensureCompositeRealmRole( String name, String description, Set<String> directChildren ) {
+        ensureRealmRole( name, description );
+        var path = "/admin/realms/{realm}/roles/" + name;
+        var existing = getMaps( path + "/composites" ).stream()
+                .map( role -> String.valueOf( role.get( "name" ) ) ).collect( java.util.stream.Collectors.toSet() );
+        var missing = directChildren.stream().filter( child -> !existing.contains( child ) ).toList();
+        if ( missing.isEmpty() ) return 0;
+        var children = missing.stream().map( child -> getMap( "/admin/realms/{realm}/roles/" + child ) ).toList();
+        try {
+            postNoLocation( path + "/composites", children );
+        } catch ( KeycloakAdminException exception ) {
+            if ( hasStatus( exception, 409 ) ) return 0;
+            throw exception;
+        }
+        return missing.size();
     }
 
     @Override
@@ -135,9 +252,22 @@ public final class KeycloakAdminRestClient implements KeycloakAdminGateway {
         return result == null ? List.of() : Arrays.asList( result );
     }
 
+    private List<GroupRepresentation> getRequiredUserGroups( String userId ) {
+        var result = authorizedGet( "/admin/realms/{realm}/users/" + userId + "/groups",
+                GroupRepresentation[].class );
+        if ( result == null ) throw new KeycloakAdminException( "consultar grupos no Keycloak" );
+        return Arrays.asList( result );
+    }
+
     private List<UserRepresentation> getUsers( String path ) {
         var result = authorizedGet( path, UserRepresentation[].class );
         return result == null ? List.of() : Arrays.asList( result );
+    }
+
+    private List<Map<String, Object>> getMaps( String path ) {
+        var result = authorizedGet( path, Map[].class );
+        if ( result == null ) return List.of();
+        return Arrays.asList( result );
     }
 
     @SuppressWarnings( "unchecked" )
@@ -153,6 +283,25 @@ public final class KeycloakAdminRestClient implements KeycloakAdminGateway {
     private <T> T authorizedGet( URI uri, Class<T> type ) {
         return authorized( "consultar Keycloak", bearer -> client.get().uri( uri )
                 .headers( headers -> headers.setBearerAuth( bearer ) ).retrieve().body( type ) );
+    }
+
+    private <T> Optional<T> optionalGet( String path, Class<T> type ) {
+        for ( var attempt = 0; attempt < 2; attempt++ ) {
+            try {
+                var body = client.get().uri( path, properties.realm() )
+                        .headers( headers -> headers.setBearerAuth( token() ) ).retrieve().body( type );
+                if ( body == null ) throw new KeycloakAdminException( "consultar Keycloak" );
+                return Optional.of( body );
+            } catch ( HttpClientErrorException.Unauthorized exception ) {
+                cachedToken = null;
+                if ( attempt == 1 ) throw new KeycloakAdminException( "consultar Keycloak", exception );
+            } catch ( HttpClientErrorException.NotFound exception ) {
+                return Optional.empty();
+            } catch ( RuntimeException exception ) {
+                throw new KeycloakAdminException( "consultar Keycloak", exception );
+            }
+        }
+        throw new KeycloakAdminException( "consultar Keycloak" );
     }
 
     private URI post( String path, Object body ) {
@@ -240,6 +389,28 @@ public final class KeycloakAdminRestClient implements KeycloakAdminGateway {
         return URLEncoder.encode( value, StandardCharsets.UTF_8 );
     }
 
+    private static KeycloakUserSnapshot snapshot( UserRepresentation user, Set<String> groups ) {
+        return new KeycloakUserSnapshot( user.id(), user.firstName(), user.lastName(), user.username(), user.email(),
+                user.enabled(), user.attributes() == null ? Map.of() : user.attributes(), groups );
+    }
+
+    private static Map<String, Object> userDocument( KeycloakUserSnapshot user ) {
+        var document = new LinkedHashMap<String, Object>();
+        document.put( "id", user.id() );
+        document.put( "firstName", user.firstName() );
+        document.put( "lastName", user.lastName() );
+        document.put( "username", user.username() );
+        document.put( "email", user.email() );
+        document.put( "enabled", user.enabled() );
+        document.put( "attributes", user.attributes() );
+        return document;
+    }
+
+    private static boolean hasStatus( KeycloakAdminException exception, int status ) {
+        return exception.getCause() instanceof HttpClientErrorException clientError
+                && clientError.getStatusCode().value() == status;
+    }
+
     private record Token(String value, Instant expiresAt) {}
 
     private record TokenResponse(String access_token, long expires_in) {}
@@ -249,7 +420,7 @@ public final class KeycloakAdminRestClient implements KeycloakAdminGateway {
     private record GroupRepresentation(String id, String name) {}
 
     private record UserRepresentation(String id, String username, String email,
-            String firstName, String lastName, boolean enabled) {
+            String firstName, String lastName, boolean enabled, Map<String, List<String>> attributes) {
         User toUser() {
             return new User( id, ( firstName + " " + lastName ).trim(), username, email, enabled );
         }

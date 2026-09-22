@@ -48,12 +48,20 @@ class SuperficiePublicaTest {
     void pontosDeExtensaoSaoPublicos() {
         List<Class<?>> superficie = List.of(Auditable.class, SensitiveField.class, AuditChange.class,
                 AuditOperation.class, AuditActor.class, AuditActorType.class, AuditActorProvider.class,
-                AuditTrailDestination.class, AuditPolicy.class, AuditWriteException.class);
+                AuditContext.class, AuditContextProvider.class, AuditTrailDestination.class, AuditPolicy.class,
+                AuditWriteException.class);
 
         assertThat(superficie).allSatisfy(tipo ->
                 assertThat(Modifier.isPublic(tipo.getModifiers()))
                         .describedAs("%s é contrato com o consumidor", tipo.getSimpleName())
                         .isTrue());
+    }
+
+    @Test
+    @DisplayName("A assinatura pública 3.1.0 da autoconfiguração permanece disponível")
+    void assinaturaDaAutoconfiguracaoPermaneceCompativel() throws NoSuchMethodException {
+        assertThat(AuditingAutoConfiguration.class.getMethod("auditingHibernateCustomizer",
+                AuditActorProvider.class, AuditTrailDestination.class)).isNotNull();
     }
 
     @Test

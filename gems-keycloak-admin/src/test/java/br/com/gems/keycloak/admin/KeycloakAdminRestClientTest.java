@@ -3,6 +3,7 @@ package br.com.gems.keycloak.admin;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.DELETE;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
 import static org.springframework.test.web.client.ExpectedCount.once;
@@ -132,6 +133,233 @@ class KeycloakAdminRestClientTest {
 
         assertThat( gateway.ensureGroup( "o1", "COORDENACAO" ) ).isEqualTo( "g1" );
         server.verify();
+    }
+
+    @Test
+    void criaGrupoQuandoARespostaLegadaDeGruposENula() {
+        var path = "http://keycloak/admin/realms/realm-de-teste/organizations/o1/groups";
+        server.expect( once(), requestTo( path ) ).andExpect( method( GET ) ).andRespond( withSuccess() );
+        server.expect( once(), requestTo( path ) ).andExpect( method( POST ) )
+                .andRespond( withSuccess().header( "Location", path + "/g1" ) );
+
+        assertThat( gateway.ensureGroup( "o1", "COORDENACAO" ) ).isEqualTo( "g1" );
+        server.verify();
+    }
+
+    @Test
+    void fazSnapshotComAtributosEGruposImutaveis() {
+        var user = "http://keycloak/admin/realms/realm-de-teste/users/u1";
+        server.expect( once(), requestTo( user ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( "{\"id\":\"u1\",\"username\":\"ana\",\"email\":\"ana@example.org\","
+                        + "\"firstName\":\"Ana\",\"lastName\":\"Silva\",\"enabled\":true,"
+                        + "\"attributes\":{\"cargo\":[\"DOCENTE\"]}}", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( user + "/groups" ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( "[{\"id\":\"g1\",\"name\":\"Turma\"}]", MediaType.APPLICATION_JSON ) );
+
+        var snapshot = gateway.snapshotUser( "u1" );
+
+        assertThat( snapshot.attributes() ).containsEntry( "cargo", java.util.List.of( "DOCENTE" ) );
+        assertThat( snapshot.groupIds() ).containsExactly( "g1" );
+        assertThatThrownBy( () -> snapshot.attributes().put( "x", java.util.List.of() ) )
+                .isInstanceOf( UnsupportedOperationException.class );
+        server.verify();
+    }
+
+    @Test
+    void compensaACriacaoQuandoResetDeSenhaFalha() {
+        var users = "http://keycloak/admin/realms/realm-de-teste/users";
+        server.expect( once(), requestTo( users ) ).andExpect( method( POST ) )
+                .andRespond( withSuccess().header( "Location", users + "/u1" ) );
+        server.expect( once(), requestTo( users + "/u1/reset-password" ) ).andExpect( method( PUT ) )
+                .andRespond( withStatus( HttpStatus.SERVICE_UNAVAILABLE ) );
+        server.expect( once(), requestTo( users + "/u1" ) ).andExpect( method( DELETE ) )
+                .andRespond( withSuccess() );
+
+        assertThatThrownBy( () -> gateway.createUser( "Ana Silva", "ana", "ana@example.org", "senha" ) )
+                .isInstanceOf( KeycloakAdminException.class );
+        server.verify();
+    }
+
+    @Test
+    void associaEDesassociaGrupoDeFormaIdempotente() {
+        var path = "http://keycloak/admin/realms/realm-de-teste/users/u1/groups/g1";
+        server.expect( once(), requestTo( path ) ).andExpect( method( PUT ) )
+                .andRespond( withStatus( HttpStatus.CONFLICT ) );
+        server.expect( once(), requestTo( path ) ).andExpect( method( DELETE ) )
+                .andRespond( withStatus( HttpStatus.NOT_FOUND ) );
+
+        gateway.joinRealmGroup( "u1", "g1" );
+        gateway.leaveRealmGroup( "u1", "g1" );
+        server.verify();
+    }
+
+    @Test
+    void preservaFilhosExtrasEAcrescentaSomenteOsDiretosAusentes() {
+        var role = "http://keycloak/admin/realms/realm-de-teste/roles/PAI";
+        server.expect( once(), requestTo( role ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( "{\"id\":\"r0\",\"name\":\"PAI\"}", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( role + "/composites" ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( "[{\"id\":\"r1\",\"name\":\"FILHO_EXISTENTE\"},"
+                        + "{\"id\":\"r9\",\"name\":\"EXTRA\"}]", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( "http://keycloak/admin/realms/realm-de-teste/roles/FILHO_NOVO" ) )
+                .andExpect( method( GET ) )
+                .andRespond( withSuccess( "{\"id\":\"r2\",\"name\":\"FILHO_NOVO\"}", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( role + "/composites" ) ).andExpect( method( POST ) )
+                .andExpect( content().json( "[{\"id\":\"r2\",\"name\":\"FILHO_NOVO\"}]" ) )
+                .andRespond( withSuccess() );
+
+        assertThat( gateway.ensureCompositeRealmRole( "PAI", "Papel pai",
+                java.util.Set.of( "FILHO_EXISTENTE", "FILHO_NOVO" ) ) ).isEqualTo( 1 );
+        server.verify();
+    }
+
+    @Test
+    void find404EDefineSnapshotAusenteComoFalhaSanitizada() {
+        var path = "http://keycloak/admin/realms/realm-de-teste/users/inexistente";
+        server.expect( once(), requestTo( path ) ).andRespond( withStatus( HttpStatus.NOT_FOUND ) );
+        server.expect( once(), requestTo( path ) ).andRespond( withStatus( HttpStatus.NOT_FOUND ) );
+
+        assertThat( gateway.findUserById( "inexistente" ) ).isEmpty();
+        assertThatThrownBy( () -> gateway.snapshotUser( "inexistente" ) )
+                .isInstanceOf( KeycloakAdminException.class )
+                .hasMessageContaining( "obter retrato de conta" );
+        server.verify();
+    }
+
+    @Test
+    void respostaNulaOuMalformadaDeUsuarioOuGruposViraFalhaSanitizada() {
+        var user = "http://keycloak/admin/realms/realm-de-teste/users/u1";
+        server.expect( once(), requestTo( user ) ).andRespond( withSuccess() );
+        server.expect( once(), requestTo( user + "/groups" ) )
+                .andRespond( withSuccess( "[{\"id\":null,\"name\":\"Grupo\"}]", MediaType.APPLICATION_JSON ) );
+
+        assertThatThrownBy( () -> gateway.findUserById( "u1" ) )
+                .isInstanceOf( KeycloakAdminException.class );
+        assertThatThrownBy( () -> gateway.listUserGroupIds( "u1" ) )
+                .isInstanceOf( KeycloakAdminException.class );
+        server.verify();
+    }
+
+    @Test
+    void atualizaHabilitaDesabilitaEExcluiUsuario() {
+        var user = "http://keycloak/admin/realms/realm-de-teste/users/u1";
+        var snapshot = new KeycloakUserSnapshot( "u1", "Ana", "Silva", "ana", "ana@example.org", true,
+                java.util.Map.of( "cargo", java.util.List.of( "DOCENTE" ) ), java.util.Set.of() );
+        server.expect( once(), requestTo( user ) ).andExpect( method( PUT ) ).andExpect( content().json(
+                "{\"id\":\"u1\",\"firstName\":\"Ana\",\"lastName\":\"Silva\",\"username\":\"ana\",\"email\":\"ana@example.org\",\"enabled\":true,\"attributes\":{\"cargo\":[\"DOCENTE\"]}}" ) ).andRespond( withSuccess() );
+        server.expect( once(), requestTo( user ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( userJson( true ), MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( user + "/groups" ) ).andRespond( withSuccess( "[]", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( user ) ).andExpect( method( PUT ) )
+                .andExpect( content().json( "{\"enabled\":false}" ) ).andRespond( withSuccess() );
+        server.expect( once(), requestTo( user ) ).andExpect( method( DELETE ) ).andRespond( withSuccess() );
+
+        gateway.updateUser( snapshot );
+        gateway.setUserEnabled( "u1", false );
+        gateway.deleteUser( "u1" );
+        server.verify();
+    }
+
+    @Test
+    void restauraRemovendoGruposExtrasEAcrescentandoAusentes() {
+        var user = "http://keycloak/admin/realms/realm-de-teste/users/u1";
+        var snapshot = new KeycloakUserSnapshot( "u1", "Ana", "Silva", "ana", "ana@example.org", true,
+                java.util.Map.of(), java.util.Set.of( "novo" ) );
+        server.expect( once(), requestTo( user ) ).andExpect( method( PUT ) ).andRespond( withSuccess() );
+        server.expect( once(), requestTo( user + "/groups" ) ).andRespond( withSuccess(
+                "[{\"id\":\"extra\",\"name\":\"Extra\"}]", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( user + "/groups/extra" ) ).andExpect( method( DELETE ) )
+                .andRespond( withSuccess() );
+        server.expect( once(), requestTo( user + "/groups/novo" ) ).andExpect( method( PUT ) )
+                .andRespond( withSuccess() );
+
+        gateway.restoreUser( snapshot );
+        server.verify();
+    }
+
+    @Test
+    void falhaDaCompensacaoFicaSuprimidaNaFalhaPrincipal() {
+        var users = "http://keycloak/admin/realms/realm-de-teste/users";
+        server.expect( once(), requestTo( users ) ).andRespond( withSuccess().header( "Location", users + "/u1" ) );
+        server.expect( once(), requestTo( users + "/u1/reset-password" ) ).andRespond( withStatus( HttpStatus.SERVICE_UNAVAILABLE ) );
+        server.expect( once(), requestTo( users + "/u1" ) ).andRespond( withStatus( HttpStatus.INTERNAL_SERVER_ERROR ) );
+
+        assertThatThrownBy( () -> gateway.createUser( "Ana Silva", "ana", "ana@example.org", "senha" ) )
+                .isInstanceOfSatisfying( KeycloakAdminException.class,
+                        failure -> assertThat( failure.getSuppressed() ).hasSize( 1 ) );
+        server.verify();
+    }
+
+    @Test
+    void criaRoleSomenteQuandoAusenteETrataConflitoComoIdempotente() {
+        var roles = "http://keycloak/admin/realms/realm-de-teste/roles";
+        server.expect( once(), requestTo( roles + "/EXISTENTE" ) ).andRespond( withSuccess( "{}", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( roles + "/NOVA" ) ).andRespond( withStatus( HttpStatus.NOT_FOUND ) );
+        server.expect( once(), requestTo( roles ) ).andExpect( method( POST ) ).andRespond( withSuccess() );
+        server.expect( once(), requestTo( roles + "/CORRENTE" ) ).andRespond( withStatus( HttpStatus.NOT_FOUND ) );
+        server.expect( once(), requestTo( roles ) ).andExpect( method( POST ) ).andRespond( withStatus( HttpStatus.CONFLICT ) );
+
+        assertThat( gateway.ensureRealmRole( "EXISTENTE", "x" ) ).isFalse();
+        assertThat( gateway.ensureRealmRole( "NOVA", "x" ) ).isTrue();
+        assertThat( gateway.ensureRealmRole( "CORRENTE", "x" ) ).isFalse();
+        server.verify();
+    }
+
+    @Test
+    void erroDeRoleQueNaoEConflitoPermaneceFalhaSanitizada() {
+        var roles = "http://keycloak/admin/realms/realm-de-teste/roles";
+        server.expect( once(), requestTo( roles + "/FALHA" ) ).andRespond( withStatus( HttpStatus.NOT_FOUND ) );
+        server.expect( once(), requestTo( roles ) ).andRespond( withStatus( HttpStatus.SERVICE_UNAVAILABLE )
+                .body( "segredo do provedor" ) );
+
+        assertThatThrownBy( () -> gateway.ensureRealmRole( "FALHA", "x" ) )
+                .isInstanceOfSatisfying( KeycloakAdminException.class,
+                        failure -> assertThat( failure.getMessage() ).doesNotContain( "segredo do provedor" ) );
+        server.verify();
+    }
+
+    @Test
+    void composicaoSemFilhosFaltantesNaoFazPost() {
+        var role = "http://keycloak/admin/realms/realm-de-teste/roles/PAI";
+        server.expect( once(), requestTo( role ) ).andRespond( withSuccess( "{}", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( role + "/composites" ) ).andRespond(
+                withSuccess( "[{\"name\":\"FILHO\"}]", MediaType.APPLICATION_JSON ) );
+
+        assertThat( gateway.ensureCompositeRealmRole( "PAI", "x", java.util.Set.of( "FILHO" ) ) ).isZero();
+        server.verify();
+    }
+
+    @Test
+    void snapshotDeRespostaMalformadaEListaNulaSaoSanitizados() {
+        var user = "http://keycloak/admin/realms/realm-de-teste/users/u1";
+        server.expect( once(), requestTo( user ) ).andRespond( withSuccess(
+                "{\"id\":null,\"username\":\"ana\",\"email\":\"ana@example.org\",\"firstName\":\"Ana\",\"lastName\":\"Silva\",\"enabled\":true}",
+                MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( user + "/groups" ) ).andRespond( withSuccess( "[]", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( user + "/groups" ) ).andRespond( withSuccess() );
+
+        assertThatThrownBy( () -> gateway.snapshotUser( "u1" ) ).isInstanceOf( KeycloakAdminException.class );
+        assertThatThrownBy( () -> gateway.listUserGroupIds( "u1" ) ).isInstanceOf( KeycloakAdminException.class );
+        server.verify();
+    }
+
+    @Test
+    void conflitoAoComporFilhosMantemResultadoAditivoIdempotente() {
+        var role = "http://keycloak/admin/realms/realm-de-teste/roles/PAI";
+        server.expect( once(), requestTo( role ) ).andRespond( withSuccess( "{}", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( role + "/composites" ) ).andRespond( withSuccess( "[]", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( "http://keycloak/admin/realms/realm-de-teste/roles/FILHO" ) )
+                .andRespond( withSuccess( "{\"name\":\"FILHO\"}", MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( role + "/composites" ) ).andExpect( method( POST ) )
+                .andRespond( withStatus( HttpStatus.CONFLICT ) );
+
+        assertThat( gateway.ensureCompositeRealmRole( "PAI", "x", java.util.Set.of( "FILHO" ) ) ).isZero();
+        server.verify();
+    }
+
+    private static String userJson( boolean enabled ) {
+        return "{\"id\":\"u1\",\"username\":\"ana\",\"email\":\"ana@example.org\","
+                + "\"firstName\":\"Ana\",\"lastName\":\"Silva\",\"enabled\":" + enabled + ",\"attributes\":{}}";
     }
 
 }

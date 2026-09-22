@@ -1,0 +1,39 @@
+{
+    "schemaVersion":  1,
+    "round":  "001-auditoria-keycloak-3.2.0",
+    "canonical":  {
+                      "roteiro":  {
+                                      "path":  "roteiro.md",
+                                      "sha256":  "995bc25e00da7eeb3758bd436a223758fe989618483c064f73a1a1cdaabd8212"
+                                  },
+                      "tasks":  {
+                                    "path":  "tasks.md",
+                                    "sha256":  "f66041c47b100846f9140cf193197e86dbd67fbf0da5327b7732bed208e0b340"
+                                }
+                  },
+    "phase":  {
+                  "number":  3,
+                  "name":  "SDD",
+                  "signal":  "portao aprovado e tasks abertas"
+              },
+    "evidence":  {
+                     "canonical":  [
+                                       "roteiro.md"
+                                   ],
+                     "criteriaSection":  "Criterios de aprovacao",
+                     "businessHistory":  null
+                 },
+    "tasks":  {
+                  "total":  28,
+                  "completed":  26,
+                  "openIds":  [
+                                  "T027",
+                                  "T028"
+                              ]
+              },
+    "nextRequiredReads":  [
+                              "tasks.md",
+                              "roteiro.md (secao 9/checkpoint aplicavel)",
+                              ".claude/skills/rodada-sdd/references/fase-3-sdd.md"
+                          ]
+}

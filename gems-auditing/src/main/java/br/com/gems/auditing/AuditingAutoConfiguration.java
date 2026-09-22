@@ -39,18 +39,35 @@ public class AuditingAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    public AuditContextProvider auditContextProvider() {
+        return new EmptyAuditContextProvider();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public AuditTrailDestination auditTrailDestination(@Value("${gems.auditing.schema:}") String schema) {
         return new FixedSchemaAuditTrailDestination(schema);
     }
 
     @Bean
     public HibernatePropertiesCustomizer auditingHibernateCustomizer(AuditActorProvider actors,
-            AuditTrailDestination destination) {
+            AuditContextProvider contexts, AuditTrailDestination destination,
+            @Value("${gems.auditing.context-columns-enabled:false}") boolean contextColumnsEnabled) {
         HibernateAuditListener listener =
-                new HibernateAuditListener(new TransactionalAuditWriter(), actors, destination);
+                new HibernateAuditListener(new TransactionalAuditWriter(contextColumnsEnabled), actors, contexts,
+                        destination);
         Integrator integrator = new AuditHibernateIntegrator(listener);
 
         return hibernateProperties -> hibernateProperties.put(
                 INTEGRATOR_PROVIDER, (IntegratorProvider) () -> List.of(integrator));
+    }
+
+    /**
+     * Mantém a assinatura pública 3.1.0 para consumidores que instanciam a autoconfiguração em
+     * testes ou configuração programática. O comportamento permanece o legado, sem colunas de contexto.
+     */
+    public HibernatePropertiesCustomizer auditingHibernateCustomizer(AuditActorProvider actors,
+            AuditTrailDestination destination) {
+        return auditingHibernateCustomizer(actors, new EmptyAuditContextProvider(), destination, false);
     }
 }

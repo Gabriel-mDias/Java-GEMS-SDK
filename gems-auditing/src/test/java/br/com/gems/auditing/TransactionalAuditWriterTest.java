@@ -97,6 +97,54 @@ class TransactionalAuditWriterTest {
     }
 
     @Test
+    @DisplayName("Com opt-in, ator e correlação entram no mesmo cabeçalho da operação")
+    void optInGravaContextoNoCabecalhoDaOperacao() throws SQLException {
+        adicionarColunasDeContexto();
+        TransactionalAuditWriter writerComContexto = new TransactionalAuditWriter(true);
+
+        writerComContexto.write(connection, SCHEMA, AuditOperation.INSERT, "Matricula", 42,
+                AuditActor.usuario("ada"), new AuditContext("usuario-42", "correlacao-42"),
+                List.of(new AuditChange("situacao", null, "ATIVA", false)));
+        connection.commit();
+
+        try (Statement statement = connection.createStatement();
+                ResultSet resultado = statement.executeQuery(
+                        "select ID_ACTOR, CD_CORRELATION from " + SCHEMA + ".AUDIT_OPERATION")) {
+            assertThat(resultado.next()).isTrue();
+            assertThat(resultado.getString("ID_ACTOR")).isEqualTo("usuario-42");
+            assertThat(resultado.getString("CD_CORRELATION")).isEqualTo("correlacao-42");
+        }
+    }
+
+    @Test
+    @DisplayName("Opt-in sobre schema sem colunas de contexto falha como escrita de auditoria")
+    void optInEmSchemaSemColunasFalhaComoAuditWriteException() {
+        TransactionalAuditWriter writerComContexto = new TransactionalAuditWriter(true);
+
+        assertThatThrownBy(() -> writerComContexto.write(connection, SCHEMA, AuditOperation.INSERT,
+                "Matricula", 42, AuditActor.tecnico(), AuditContext.empty(),
+                List.of(new AuditChange("situacao", null, "ATIVA", false))))
+                .isInstanceOf(AuditWriteException.class)
+                .hasMessageContaining("Matricula");
+    }
+
+    @Test
+    @DisplayName("Rollback remove cabeçalho, mudanças e contexto juntos")
+    void rollbackRemoveContextoJuntoComATrilha() throws SQLException {
+        adicionarColunasDeContexto();
+        TransactionalAuditWriter writerComContexto = new TransactionalAuditWriter(true);
+
+        writerComContexto.write(connection, SCHEMA, AuditOperation.UPDATE, "Matricula", 42,
+                AuditActor.usuario("ada"), new AuditContext("usuario-42", "correlacao-42"),
+                List.of(new AuditChange("situacao", "ATIVA", "TRANCADA", false)));
+
+        connection.rollback();
+
+        assertThat(contar("AUDIT_OPERATION")).isZero();
+        assertThat(contar("AUDIT_CHANGE")).isZero();
+    }
+
+    @Test
     @DisplayName("AU-4: o campo sigiloso chega ao banco sem os valores, mas com o registro da mudança")
     void campoSigilosoChegaSemValores() throws SQLException {
         writer.write(connection, SCHEMA, AuditOperation.UPDATE, "Usuario", 7, AuditActor.usuario("ada"),
@@ -163,5 +211,13 @@ class TransactionalAuditWriterTest {
             resultado.next();
             return resultado.getInt(1);
         }
+    }
+
+    private void adicionarColunasDeContexto() throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("alter table " + SCHEMA + ".AUDIT_OPERATION add ID_ACTOR varchar(200)");
+            statement.execute("alter table " + SCHEMA + ".AUDIT_OPERATION add CD_CORRELATION varchar(200)");
+        }
+        connection.commit();
     }
 }
