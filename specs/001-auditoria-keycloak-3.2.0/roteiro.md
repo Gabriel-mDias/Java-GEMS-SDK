@@ -1,6 +1,6 @@
 # Roteiro — Java GEMS SDK 3.2.0
 
-**Status**: fase 3 em curso; SDK-AUD e SDK-KC verdes, próximo checkpoint SDK-REL.
+**Status**: fase 3 em curso; SDK-REL local verde, aguardando PR/CI/merge/publicação e resolução limpa.
 
 ## 1. Objetivo e escopo
 
@@ -64,7 +64,7 @@ Cobertura: 18/18 FR e 6/6 SC; zero achado CRITICAL pendente e zero violação da
 | 4 | `/speckit-tasks` | concluído em 2026-09-21 | 28 tarefas: 10 AUD, 12 KC, 6 REL |
 | 5 | `/speckit-analyze` | concluído em 2026-09-21 | 0 CRITICAL pendente; 18/18 FR e 6/6 SC cobertos |
 | 6 | `roteiro.md` | aprovado em 2026-09-21 | SDK-AUD liberado; SDK-KC e SDK-REL mantêm a ordem dos checkpoints |
-| 7 | `/speckit-implement` | em curso em 2026-09-21 | **SDK-AUD e SDK-KC verdes**; próximo checkpoint SDK-REL |
+| 7 | `/speckit-implement` | em curso em 2026-09-22 | **SDK-REL local verde**; T027/T028 em curso com o orquestrador |
 
 **Checkpoint SDK-AUD — verde em 2026-09-21:** T002–T010 concluídas. O contrato ganhou
 `AuditContext`, provider público e default vazio; o SQL 3.1.0 permanece o caminho padrão e as duas
@@ -84,6 +84,15 @@ foram restauradas por patch inverso. Gate final:
 `mvn -B -pl gems-keycloak-admin,gems-security-authorization -am test` com **118 testes**
 (38 utils + 28 exception + 27 Keycloak + 25 authorization), zero falhas/erros/skips;
 `git diff --check` sem erro. Próximo checkpoint: SDK-REL.
+
+**Checkpoint SDK-REL — validação local verde em 2026-09-22:** T023–T026 concluídas. O mesmo
+consumer smoke da superfície 3.1.0 compilou antes do bump contra 3.1.0 e depois contra o BOM 3.2.0;
+os 17 POMs estão sincronizados em 3.2.0 e a documentação registra a evolução MINOR aditiva e a
+migração anterior ao opt-in. Dez mutações independentes de auditoria e Keycloak ficaram vermelhas
+e foram restauradas. O orquestrador repetiu `mvn -B clean install -DgenerateBackupPoms=false` com
+**212 testes**, zero falhas/erros/skips, repetiu o smoke 3.1.0 via BOM 3.2.0 e obteve
+`git diff --check` sem erro. T027/T028 permanecem abertas até PR/CI/merge/publicação e resolução
+das quatro coordenadas em cache Maven limpo.
 
 ## 8. Critérios de aprovação
 

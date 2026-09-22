@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+## Release 3.2.0
+
+3.2.0 e uma evolucao MINOR aditiva: contexto de auditoria opt-in e desligado por padrao, com
+migracao previa de `ID_ACTOR` e `CD_CORRELATION`; lifecycle, snapshots, grupos e roles Keycloak
+ficam em interfaces especializadas. Nao adicionar auto-configuracao ou credenciais administrativas
+Keycloak. A superficie 3.1.0 deve continuar compilando.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What this is

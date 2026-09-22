@@ -1,5 +1,12 @@
 # Java GEMS SDK
 
+## Release 3.2.0
+
+3.2.0 e uma versao MINOR aditiva. A auditoria aceita contexto opcional de identidade estavel e
+correlacao, desligado por padrao; habilite as colunas somente apos migrar `ID_ACTOR` e
+`CD_CORRELATION`. Lifecycle, snapshots, grupos e roles Keycloak usam interfaces especializadas.
+Nao ha auto-configuracao nem credenciais administrativas Keycloak, e a API 3.1.0 permanece compativel.
+
 Este é o SDK Oficial do projeto GEMS contendo os recursos compartilhados utilizados pelos microsserviços.
 
 ## 🤖 Uso para IAs (Claude, Cursor, Copilot, Gemini)
@@ -56,7 +63,7 @@ Se você está usando uma IA no seu projeto consumidor ou se você é uma IA len
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.1.0</version>
+            <version>3.2.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -258,7 +265,7 @@ Adicione em `<dependencyManagement>` — isso evita declarar `<version>` em cada
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.1.0</version>
+            <version>3.2.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
