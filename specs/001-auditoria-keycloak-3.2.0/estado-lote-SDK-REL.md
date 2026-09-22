@@ -49,7 +49,10 @@ Nenhuma tarefa do executor.
 
 ## 6. Decisoes fora do pacote
 
-Nenhuma.
+O verificador compartilhado `verificar-lote.ps1` foi executado, mas seu contrato exige pelo menos
+um `AGENTS.md` e uma regra `.gems-ai/rules/*.md`. Este repositorio nao possui esses arquivos; a
+incompatibilidade estrutural foi mantida visivel e a extensao foi conferida manualmente contra
+READ/EDIT/CREATE, estado e diff real, sem inventar arquivos de governanca.
 
 ## 7. O que esta quebrado agora
 
