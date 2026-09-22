@@ -52,10 +52,25 @@ final class TransactionalAuditWriter {
             (ID_AUDIT_OPERATION,CD_OPERATION,NM_ENTITY,DS_ENTITY_ID,NM_ACTOR,CD_ACTOR_TYPE,DT_OPERATION)
             values (?,?,?,?,?,?,?)""";
 
+    private static final String INSERT_OPERATION_WITH_CONTEXT = """
+            insert into %s.AUDIT_OPERATION
+            (ID_AUDIT_OPERATION,CD_OPERATION,NM_ENTITY,DS_ENTITY_ID,NM_ACTOR,CD_ACTOR_TYPE,ID_ACTOR,CD_CORRELATION,DT_OPERATION)
+            values (?,?,?,?,?,?,?,?,?)""";
+
     private static final String INSERT_CHANGE = """
             insert into %s.AUDIT_CHANGE
             (ID_AUDIT_CHANGE,ID_AUDIT_OPERATION,NM_FIELD,DS_OLD_VALUE,DS_NEW_VALUE,FL_SIGILOSO)
             values (?,?,?,?,?,?)""";
+
+    private final boolean contextColumnsEnabled;
+
+    TransactionalAuditWriter() {
+        this(false);
+    }
+
+    TransactionalAuditWriter(boolean contextColumnsEnabled) {
+        this.contextColumnsEnabled = contextColumnsEnabled;
+    }
 
     /**
      * Grava uma operação e as mudanças dela.
@@ -65,14 +80,22 @@ final class TransactionalAuditWriter {
      */
     void write(Connection connection, String schema, AuditOperation operation, String entity, Object entityId,
             AuditActor actor, List<AuditChange> changes) {
+        write(connection, schema, operation, entity, entityId, actor, AuditContext.empty(), changes);
+    }
+
+    void write(Connection connection, String schema, AuditOperation operation, String entity, Object entityId,
+            AuditActor actor, AuditContext context, List<AuditChange> changes) {
         if (changes.isEmpty()) {
             return;
         }
 
         String schemaValidado = validar(schema);
         UUID operationId = UUID.randomUUID();
+        AuditContext contextValidado = context == null ? AuditContext.empty() : context;
 
-        try (PreparedStatement header = connection.prepareStatement(INSERT_OPERATION.formatted(schemaValidado));
+        try (PreparedStatement header = connection.prepareStatement((contextColumnsEnabled
+                ? INSERT_OPERATION_WITH_CONTEXT
+                : INSERT_OPERATION).formatted(schemaValidado));
                 PreparedStatement detail = connection.prepareStatement(INSERT_CHANGE.formatted(schemaValidado))) {
 
             header.setObject(1, operationId);
@@ -81,7 +104,13 @@ final class TransactionalAuditWriter {
             header.setString(4, String.valueOf(entityId));
             header.setString(5, actor.name());
             header.setString(6, actor.type().name());
-            header.setTimestamp(7, Timestamp.from(Instant.now()));
+            if (contextColumnsEnabled) {
+                header.setString(7, contextValidado.actorId());
+                header.setString(8, contextValidado.correlationId());
+                header.setTimestamp(9, Timestamp.from(Instant.now()));
+            } else {
+                header.setTimestamp(7, Timestamp.from(Instant.now()));
+            }
             header.executeUpdate();
 
             for (AuditChange change : changes) {

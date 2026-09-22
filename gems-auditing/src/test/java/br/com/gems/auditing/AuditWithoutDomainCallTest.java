@@ -22,6 +22,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -45,14 +46,19 @@ class AuditWithoutDomainCallTest {
 
     private String url;
     private SessionFactory sessionFactory;
+    private AtomicInteger contextCalls;
 
     @BeforeEach
     void prepararBancoESessionFactory() throws SQLException {
         url = "jdbc:h2:mem:sem-chamada-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1";
         criarTabelasDaTrilha();
 
-        HibernateAuditListener listener = new HibernateAuditListener(new TransactionalAuditWriter(),
-                new SystemAuditActorProvider(), entidade -> SCHEMA);
+        contextCalls = new AtomicInteger();
+        HibernateAuditListener listener = new HibernateAuditListener(new TransactionalAuditWriter(true),
+                new SystemAuditActorProvider(), () -> {
+                    contextCalls.incrementAndGet();
+                    return new AuditContext("usuario-42", "correlacao-42");
+                }, entidade -> SCHEMA);
 
         BootstrapServiceRegistry bootstrap = new BootstrapServiceRegistryBuilder()
                 .applyIntegrator(new AuditHibernateIntegrator(listener))
@@ -94,6 +100,23 @@ class AuditWithoutDomainCallTest {
                 .isEqualTo(1);
         assertThat(valorUnico("select NM_ENTITY from " + SCHEMA + ".AUDIT_OPERATION"))
                 .isEqualTo(MatriculaDeTeste.class.getSimpleName());
+    }
+
+    @Test
+    @DisplayName("O listener leva o contexto do provider ao cabeçalho da mesma operação ORM")
+    void insercaoGravaContextoDoProvider() throws SQLException {
+        sessionFactory.inTransaction(session -> {
+            MatriculaDeTeste matricula = new MatriculaDeTeste();
+            matricula.id = 3L;
+            matricula.situacao = "ATIVA";
+            session.persist(matricula);
+        });
+
+        assertThat(valorUnico("select ID_ACTOR from " + SCHEMA + ".AUDIT_OPERATION"))
+                .isEqualTo("usuario-42");
+        assertThat(valorUnico("select CD_CORRELATION from " + SCHEMA + ".AUDIT_OPERATION"))
+                .isEqualTo("correlacao-42");
+        assertThat(contextCalls).hasValue(1);
     }
 
     @Test
@@ -178,6 +201,8 @@ class AuditWithoutDomainCallTest {
                         DS_ENTITY_ID varchar(200),
                         NM_ACTOR varchar(200) not null,
                         CD_ACTOR_TYPE varchar(20) not null,
+                        ID_ACTOR varchar(200),
+                        CD_CORRELATION varchar(200),
                         DT_OPERATION timestamp not null)""".formatted(SCHEMA));
             comando.execute("""
                     create table %s.AUDIT_CHANGE (

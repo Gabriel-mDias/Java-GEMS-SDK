@@ -64,6 +64,15 @@ Cobertura: 18/18 FR e 6/6 SC; zero achado CRITICAL pendente e zero violação da
 | 4 | `/speckit-tasks` | concluído em 2026-09-21 | 28 tarefas: 10 AUD, 12 KC, 6 REL |
 | 5 | `/speckit-analyze` | concluído em 2026-09-21 | 0 CRITICAL pendente; 18/18 FR e 6/6 SC cobertos |
 | 6 | `roteiro.md` | aprovado em 2026-09-21 | SDK-AUD liberado; SDK-KC e SDK-REL mantêm a ordem dos checkpoints |
+| 7 | `/speckit-implement` | em curso em 2026-09-21 | **SDK-AUD verde**; próximo checkpoint SDK-KC |
+
+**Checkpoint SDK-AUD — verde em 2026-09-21:** T002–T010 concluídas. O contrato ganhou
+`AuditContext`, provider público e default vazio; o SQL 3.1.0 permanece o caminho padrão e as duas
+colunas novas só entram com opt-in. A revisão do orquestrador preservou também a assinatura pública
+3.1.0 de `AuditingAutoConfiguration`. Test-first vermelho registrado em T002/T003/T005; mutações
+independentes de id, correlação, opt-in e commit indevido ficaram vermelhas e foram restauradas.
+Gate final: `mvn -B -pl gems-auditing -am test` com **35 testes**, zero falhas/erros/skips;
+`git diff --check` sem erro. Nenhum arquivo fora do pacote foi alterado.
 
 ## 8. Critérios de aprovação
 

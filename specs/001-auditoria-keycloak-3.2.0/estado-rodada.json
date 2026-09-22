@@ -4,11 +4,11 @@
     "canonical":  {
                       "roteiro":  {
                                       "path":  "roteiro.md",
-                                      "sha256":  "9713d6be6bc9d4ae8dcba0b9b10aae07e03da1162cee32889f9033cf8c4f51b1"
+                                      "sha256":  "355c6596bf6a6adcc9dd4383a1557052ed25ba40fabe9e16a9fecd4edf944ef9"
                                   },
                       "tasks":  {
                                     "path":  "tasks.md",
-                                    "sha256":  "80bd27f086138ad39b5656585b9d0e5ed46ae26ce65394548f7f3cd0552b0a94"
+                                    "sha256":  "06130a185524f423289f100da4d82fc8e16904974b4e544fe9f1aa8c87f27498"
                                 }
                   },
     "phase":  {
@@ -25,17 +25,8 @@
                  },
     "tasks":  {
                   "total":  28,
-                  "completed":  2,
+                  "completed":  11,
                   "openIds":  [
-                                  "T002",
-                                  "T003",
-                                  "T004",
-                                  "T005",
-                                  "T006",
-                                  "T007",
-                                  "T008",
-                                  "T009",
-                                  "T010",
                                   "T012",
                                   "T013",
                                   "T014",

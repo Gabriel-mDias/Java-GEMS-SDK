@@ -5,15 +5,15 @@ Cada tarefa registra tier/esforço/risco. Delegados recebem pacote fechado e nã
 ## SDK-AUD — 10 tarefas
 
 - [x] T001 [orquestrador/medium/alto] Congelar `contracts/auditing-3.2.0.md`; risco de API/binário. Aprovado no portão SDK-P00 em 2026-09-21.
-- [ ] T002 [especializado/medium/alto] Test-first: ampliar `gems-auditing/src/test/java/br/com/gems/auditing/SuperficiePublicaTest.java` para compatibilidade e novos pontos.
-- [ ] T003 [especializado/medium/médio] Criar testes de normalização/default do contexto em `gems-auditing/src/test/java/br/com/gems/auditing/AuditContextTest.java`.
-- [ ] T004 [especializado/medium/alto] Criar `AuditContext.java`, `AuditContextProvider.java` e `EmptyAuditContextProvider.java` públicos com Javadoc.
-- [ ] T005 [especializado/medium/alto] Test-first: ampliar `TransactionalAuditWriterTest.java` com schema antigo, opt-in, identidade, correlação e rollback.
-- [ ] T006 [especializado/medium/alto] Alterar `TransactionalAuditWriter.java` para SQL 3.1.0/default e SQL contextual opt-in.
-- [ ] T007 [especializado/medium/alto] Alterar `HibernateAuditListener.java` para resolver contexto uma vez e passá-lo ao writer.
-- [ ] T008 [especializado/low/médio] Alterar `AuditingAutoConfiguration.java` com provider default e propriedade desligada.
-- [ ] T009 [mecânico/medium/alto] Mutar id, correlação, opt-in e transação; registrar vermelho e restaurar.
-- [ ] T010 [orquestrador/medium/alto] Repetir `mvn -B -pl gems-auditing -am test`, revisar diff e aceitar SDK-AUD.
+- [x] T002 [especializado/medium/alto] Test-first: ampliar `gems-auditing/src/test/java/br/com/gems/auditing/SuperficiePublicaTest.java` para compatibilidade e novos pontos.
+- [x] T003 [especializado/medium/médio] Criar testes de normalização/default do contexto em `gems-auditing/src/test/java/br/com/gems/auditing/AuditContextTest.java`.
+- [x] T004 [especializado/medium/alto] Criar `AuditContext.java`, `AuditContextProvider.java` e `EmptyAuditContextProvider.java` públicos com Javadoc.
+- [x] T005 [especializado/medium/alto] Test-first: ampliar `TransactionalAuditWriterTest.java` com schema antigo, opt-in, identidade, correlação e rollback.
+- [x] T006 [especializado/medium/alto] Alterar `TransactionalAuditWriter.java` para SQL 3.1.0/default e SQL contextual opt-in.
+- [x] T007 [especializado/medium/alto] Alterar `HibernateAuditListener.java` para resolver contexto uma vez e passá-lo ao writer.
+- [x] T008 [especializado/low/médio] Alterar `AuditingAutoConfiguration.java` com provider default e propriedade desligada.
+- [x] T009 [mecânico/medium/alto] Mutar id, correlação, opt-in e transação; registrar vermelho e restaurar.
+- [x] T010 [orquestrador/medium/alto] Repetir `mvn -B -pl gems-auditing -am test`, revisar diff e aceitar SDK-AUD.
 
 ## SDK-KC — 12 tarefas
 
