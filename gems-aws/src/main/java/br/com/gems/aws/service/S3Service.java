@@ -39,7 +39,7 @@ public class S3Service {
     private long expirationMinutes;
 
     /**
-     * Gera uma URL pré-assinada para que o cliente (frontend) possa fazer o upload (PUT) 
+     * Gera uma URL pré-assinada para que o cliente (frontend) possa fazer o upload (PUT)
      * diretamente para o S3 de forma segura e com expiração definida.
      *
      * @param request A solicitação contendo detalhes como nome do arquivo, tipo de conteúdo e diretório opcional.
@@ -83,7 +83,7 @@ public class S3Service {
     }
 
     /**
-     * Gera uma URL pré-assinada para que o cliente possa fazer o download (GET) 
+     * Gera uma URL pré-assinada para que o cliente possa fazer o download (GET)
      * de um arquivo privado armazenado no bucket.
      *
      * @param fileKey A chave ou o caminho completo do objeto dentro do bucket S3.

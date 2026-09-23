@@ -50,7 +50,7 @@ class S3ServiceTest {
         GenerateUploadUrlRequestDTO request = new GenerateUploadUrlRequestDTO();
         request.setFileName(null);
 
-        BusinessException exception = assertThrows(BusinessException.class, () -> 
+        BusinessException exception = assertThrows(BusinessException.class, () ->
             s3Service.generatePresignedUploadUrl(request)
         );
 
@@ -73,7 +73,7 @@ class S3ServiceTest {
                         .method(software.amazon.awssdk.http.SdkHttpMethod.PUT)
                         .build())
                 .build();
-                
+
         when(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class))).thenReturn(presignedRequestMock);
 
         PresignedUrlResponseDTO response = s3Service.generatePresignedUploadUrl(request);
