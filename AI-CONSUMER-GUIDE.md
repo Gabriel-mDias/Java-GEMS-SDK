@@ -1,11 +1,10 @@
 # GEMS SDK Java — Guia de Consumo para IAs
 
-## Compatibilidade 3.2.0
+## Compatibilidade 3.3.0
 
-A release 3.2.0 e MINOR e aditiva. O contexto de auditoria e opt-in e permanece desligado por
-padrao; migre `ID_ACTOR` e `CD_CORRELATION` antes de habilita-lo. Lifecycle, snapshots, grupos e
-roles Keycloak sao expostos por interfaces especializadas. A SDK nao fornece auto-configuracao ou
-credenciais administrativas Keycloak e preserva a superficie 3.1.0.
+A release 3.3.0 e MINOR e aditiva. Grupos de primeiro nivel do realm passam a ter gateway proprio.
+O contexto de auditoria continua opt-in e desligado por padrao. A SDK nao fornece auto-configuracao
+ou credenciais administrativas Keycloak e preserva a superficie 3.2.0.
 
 > Guia condensado e prático para geração de código seguro e aderente ao padrão GEMS.
 > Para a referência completa da API pública (assinaturas, DTOs, snippets), veja [`llms.txt`](llms.txt).
@@ -34,7 +33,7 @@ credenciais administrativas Keycloak e preserva a superficie 3.1.0.
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.2.0</version>
+            <version>3.3.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -69,7 +68,7 @@ credenciais administrativas Keycloak e preserva a superficie 3.1.0.
 | `gems-jpa` | `gems-jpa` | `gems.jpa.enabled=true` | `BaseCustomJpaRepository<T>` |
 | `gems-jpa-multi-tenant` | `gems-jpa-multi-tenant` | `gems.tenant.enabled=true` | `TenantScope`, `JpaTenantContext`, `TenantSchemaService` — **falha fechada desde a 3.0.0** |
 | `gems-auditing` | `gems-auditing` | `gems.auditing.enabled=true` + `gems.auditing.schema` | `@Auditable`, `@SensitiveField`, `AuditActorProvider`, `AuditTrailDestination` |
-| `gems-keycloak-admin` | `gems-keycloak-admin` | nenhuma (sem auto-config) | `KeycloakAdminGateway`, `KeycloakAdminRestClient`, `KeycloakAdminProperties` |
+| `gems-keycloak-admin` | `gems-keycloak-admin` | nenhuma (sem auto-config) | `KeycloakAdminGateway`, `KeycloakUserLifecycleGateway`, `KeycloakRealmRoleGateway`, `KeycloakRealmGroupGateway` |
 | `gems-security-authorization` | `gems-security-authorization` | nenhuma (sem auto-config) | `AuthorizationCatalog`, `@PublicEndpoint`/`@GlobalEndpoint`/`@TenantEndpoint`, `TenantAuthorizationInterceptor`, `FrontendActionCatalogGenerator` |
 | `gems-aws` | `gems-aws` | `aws.s3.enabled=true` | `S3Service` |
 | `gems-aws-web` | `gems-aws-web` | `aws.s3.enabled=true` | `S3Controller` (automático) |
@@ -397,6 +396,11 @@ O token técnico é obtido por `client_credentials` e mantido em memória até p
 > **Nenhum campo tem valor padrão, e o segredo não existe em código.** `KeycloakAdminProperties` recusa `baseUrl`, `realm`, `clientId` ou `clientSecret` ausentes ou em branco **na construção**. Um padrão embutido é o que permite uma aplicação subir apontada para o realm errado sem que ninguém perceba. Nunca versione arquivo com o segredo.
 
 Toda falha sai como `KeycloakAdminException` — e portanto como **502** no envelope do `gems-exception`.
+
+Para perfis representados por grupos de primeiro nível, injete o mesmo cliente como
+`KeycloakRealmGroupGateway`. `findRealmGroupByName` faz correspondência exata,
+`createRealmGroup` tolera criação concorrente e `ensureRealmRoleOnRealmGroup` não remove
+mapeamentos existentes.
 
 ---
 

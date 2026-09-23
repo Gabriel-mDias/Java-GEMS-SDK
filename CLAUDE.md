@@ -1,11 +1,10 @@
 # CLAUDE.md
 
-## Release 3.2.0
+## Release 3.3.0
 
-3.2.0 e uma evolucao MINOR aditiva: contexto de auditoria opt-in e desligado por padrao, com
-migracao previa de `ID_ACTOR` e `CD_CORRELATION`; lifecycle, snapshots, grupos e roles Keycloak
-ficam em interfaces especializadas. Nao adicionar auto-configuracao ou credenciais administrativas
-Keycloak. A superficie 3.1.0 deve continuar compilando.
+3.3.0 e uma evolucao MINOR aditiva: `KeycloakRealmGroupGateway` cobre grupos de primeiro nivel do
+realm e mapeamento idempotente de roles. Nao adicionar auto-configuracao ou credenciais
+administrativas Keycloak. A superficie 3.2.0 deve continuar compilando.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -40,7 +39,9 @@ mvn test -pl gems-utils -Dtest=DateUtilTest#methodName
   ```bash
   mvn versions:set -DnewVersion=<NEW_VERSION> -DgenerateBackupPoms=false
   ```
-- Releases are automatic: pushing to `main` triggers `.github/workflows/publish.yml`, which runs `mvn deploy -DskipTests` to GitHub Packages. PRs to `main` run `clean install` for validation.
+- Pushing to `main` only validates. A human-approved immutable tag `vX.Y.Z` triggers
+  `.github/workflows/release.yml`, which validates, publishes to GitHub Packages and creates the
+  GitHub Release. Never publish the same version from both `main` and a tag.
 
 ## Architecture
 
@@ -55,7 +56,10 @@ Modules and their intra-SDK dependencies:
 - `gems-jpa` — base JPA repository abstractions (`BaseCustomJpaRepository` + impl). Auto-config gated on `gems.jpa.enabled=true`.
 - `gems-jpa-multi-tenant` — depends on `gems-jpa`; schema-based multi-tenancy engine. Tenant identifiers are validated via `TenantIdentifierValidator` before composing schema SQL (SQL-injection guard). **Behaviour and public API changed in 3.0.0 — see "Multi-tenant module specifics".**
 - `gems-auditing` — Hibernate-level audit trail, opt-in per entity via `@Auditable` and gated on `gems.auditing.enabled=true`. The domain never calls the writer: a Hibernate `Integrator` installs the listener, and `TransactionalAuditWriter` is package-private on purpose. Two `@ConditionalOnMissingBean` extension points — `AuditActorProvider` (defaults to `SystemAuditActorProvider`, actor `SISTEMA`) and `AuditTrailDestination`. `@SensitiveField` records that a field changed without recording its values.
-- `gems-keycloak-admin` — `KeycloakAdminGateway`, the admin operations against the identity provider expressed as operations ("ensure organization", "create user"), with `KeycloakAdminRestClient` as the transport. Every failure leaves as `KeycloakAdminException`, i.e. 502 in the `gems-exception` envelope. **No auto-configuration and no defaults**: `KeycloakAdminProperties` rejects a missing `baseUrl`, `realm`, `clientId` or `clientSecret` at construction, so a misconfigured environment fails at startup instead of pointing at the wrong realm in production. The consumer builds the bean and binds the values from its own config mechanism; no secret is ever committed here.
+- `gems-keycloak-admin` — specialized gateways for organizations, user lifecycle, realm roles and
+  top-level realm groups, with `KeycloakAdminRestClient` as the transport. Public gateways must not
+  expose Spring or Keycloak client types. Every failure leaves as `KeycloakAdminException`, i.e. 502
+  in the `gems-exception` envelope. **No auto-configuration and no defaults**.
 - `gems-security-authorization` — authorization by **concrete action**, never by generic role. `AuthorizationCatalog.of(<enum>)` derives the catalogue from an enum implementing `AuthorizationAction`, so a mistyped action does not compile; global and tenant scopes must be disjoint. `@PublicEndpoint`/`@GlobalEndpoint`/`@TenantEndpoint` mark intent, `EndpointAuthorizationScan` fails the build on an unmarked endpoint, and `TenantAuthorizationInterceptor` fails **closed** (403, not 401) when a tenant endpoint arrives without a proven organization. `FrontendActionCatalogGenerator` *generates* the frontend's JSON action list from the same enum and `verify(...)` fails when it is out of date — the list is a consequence of the enum, not a third copy to keep in parity by hand.
 - `gems-aws` — depends on `gems-utils`/`gems-exception`; `S3Service` + S3 client beans only (no web). Gated on `aws.s3.enabled=true`.
 - `gems-aws-web` — depends on `gems-aws`; the optional `S3Controller` REST endpoints, registered only in servlet web apps.

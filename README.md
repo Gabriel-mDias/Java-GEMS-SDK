@@ -1,11 +1,10 @@
 # Java GEMS SDK
 
-## Release 3.2.0
+## Release 3.3.0
 
-3.2.0 e uma versao MINOR aditiva. A auditoria aceita contexto opcional de identidade estavel e
-correlacao, desligado por padrao; habilite as colunas somente apos migrar `ID_ACTOR` e
-`CD_CORRELATION`. Lifecycle, snapshots, grupos e roles Keycloak usam interfaces especializadas.
-Nao ha auto-configuracao nem credenciais administrativas Keycloak, e a API 3.1.0 permanece compativel.
+3.3.0 e uma versao MINOR aditiva. `KeycloakRealmGroupGateway` cobre busca/criacao de grupos de
+primeiro nivel do realm e mapeamento idempotente de realm roles. Nao ha auto-configuracao nem
+credenciais administrativas Keycloak, e a superficie 3.2.0 permanece compativel.
 
 Este é o SDK Oficial do projeto GEMS contendo os recursos compartilhados utilizados pelos microsserviços.
 
@@ -28,7 +27,7 @@ Se você está usando uma IA no seu projeto consumidor ou se você é uma IA len
 - **`gems-jpa`**: Classes bases para repositório (`BaseCustomJpaRepository`). Auto-configuração ativável por `gems.jpa.enabled=true`.
 - **`gems-jpa-multi-tenant`**: Motor de multi-tenancy baseado em Schemas e provedores de conexão customizados do Hibernate. **A 3.0.0 muda o comportamento observável deste módulo** — veja a seção do módulo abaixo antes de subir de versão.
 - **`gems-auditing`** *(3.0.0)*: Trilha de auditoria no nível do Hibernate, **opt-in por entidade** com `@Auditable` e ativável por `gems.auditing.enabled=true`. O domínio nunca chama o escritor: um `Integrator` do Hibernate instala o listener. Pontos de extensão `@ConditionalOnMissingBean`: `AuditActorProvider` (padrão `SISTEMA`) e `AuditTrailDestination`. `@SensitiveField` registra que o campo mudou **sem** registrar os valores.
-- **`gems-keycloak-admin`** *(3.0.0)*: `KeycloakAdminGateway` — as operações administrativas sobre o provedor de identidade na linguagem de quem as chama. Toda falha sai como `KeycloakAdminException`, ou seja, **502** no envelope. **Sem auto-configuração e sem valor padrão**: `KeycloakAdminProperties` recusa `baseUrl`, `realm`, `clientId` ou `clientSecret` ausentes na construção — o ambiente mal configurado falha ao subir, não em produção.
+- **`gems-keycloak-admin`** *(3.0.0)*: gateways especializados para organizações, ciclo de usuário, roles e grupos de primeiro nível do realm. `KeycloakRealmGroupGateway` busca/cria grupos e garante realm roles sem expor tipos do provedor. Toda falha sai como `KeycloakAdminException`, ou seja, **502** no envelope. **Sem auto-configuração e sem valor padrão**: `KeycloakAdminProperties` recusa configuração ausente na construção.
 - **`gems-security-authorization`** *(3.0.0)*: Autorização por **ação concreta**, nunca por perfil genérico. `AuthorizationCatalog.of(<enum>)` deriva o catálogo de um enum, então ação escrita errada não compila. `@PublicEndpoint` / `@GlobalEndpoint` / `@TenantEndpoint` declaram intenção, `EndpointAuthorizationScan` reprova endpoint não marcado, e `TenantAuthorizationInterceptor` **falha fechado** (403) quando um endpoint de organização chega sem organização comprovada. `FrontendActionCatalogGenerator` **gera** a lista de ações que o frontend consome a partir do mesmo enum. Sem auto-configuração — o enum de ações é do consumidor.
 - **`gems-aws`**: Conectividade simplificada com a AWS (S3 e Geração de Presigned URLs) — apenas o serviço, sem stack web. Ativável por `aws.s3.enabled=true`.
 - **`gems-aws-web`**: Endpoints REST opcionais (`S3Controller`) para o módulo AWS. Inclua-o apenas se quiser os endpoints prontos.
@@ -63,7 +62,7 @@ Se você está usando uma IA no seu projeto consumidor ou se você é uma IA len
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.2.0</version>
+            <version>3.3.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -265,7 +264,7 @@ Adicione em `<dependencyManagement>` — isso evita declarar `<version>` em cada
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.2.0</version>
+            <version>3.3.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>

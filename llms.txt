@@ -1,11 +1,9 @@
 # GEMS SDK Java — AI Context File
 
-## Release 3.2.0
+## Release 3.3.0
 
-MINOR aditiva: contexto opcional de auditoria (identidade e correlacao), desligado por padrao e
-dependente de migracao das colunas `ID_ACTOR` e `CD_CORRELATION`. Lifecycle, snapshots, grupos e
-roles Keycloak usam interfaces especializadas. Nao ha auto-configuracao/credenciais Keycloak; a
-API 3.1.0 e preservada.
+MINOR aditiva: `KeycloakRealmGroupGateway` cobre grupos de primeiro nivel e mapeamento idempotente
+de realm roles. Nao ha auto-configuracao/credenciais Keycloak; a API 3.2.0 e preservada.
 
 This file is intended for AI assistants (Claude, Cursor, Copilot, Gemini, etc.) consuming this repository.
 It follows the llmstxt.org convention and is kept up-to-date with the public API surface.
@@ -17,7 +15,7 @@ It follows the llmstxt.org convention and is kept up-to-date with the public API
 GEMS SDK (`br.com.gems:gems-sdk`) is a multi-module Maven library of shared, reusable resources consumed by GEMS microservices.
 It is published as JARs to GitHub Packages — it is NOT a runnable application.
 
-- **Current version:** 3.2.0
+- **Current version:** 3.3.0
 - **Java:** 21
 - **Spring Boot parent:** 4.1.1
 - **GroupId:** `br.com.gems`
@@ -142,7 +140,7 @@ Authentication in `~/.m2/settings.xml`:
         <dependency>
             <groupId>br.com.gems</groupId>
             <artifactId>gems-bom</artifactId>
-            <version>3.2.0</version>
+            <version>3.3.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -675,10 +673,18 @@ public interface KeycloakAdminGateway {
     void removeGroupMember(String organizationId, String groupId, String userId);
 }
 
+public interface KeycloakRealmGroupGateway {
+    record RealmGroup(String id, String name) {}
+    Optional<RealmGroup> findRealmGroupByName(String name);
+    String createRealmGroup(String name);
+    boolean ensureRealmRoleOnRealmGroup(String groupId, String role);
+}
+
 public record KeycloakAdminProperties(String baseUrl, String realm, String clientId,
         String clientSecret, Duration connectTimeout, Duration readTimeout) {}
 
-public final class KeycloakAdminRestClient implements KeycloakAdminGateway {
+public final class KeycloakAdminRestClient implements KeycloakAdminGateway,
+        KeycloakUserLifecycleGateway, KeycloakRealmRoleGateway, KeycloakRealmGroupGateway {
     public KeycloakAdminRestClient(RestClient client, KeycloakAdminProperties properties) {}
 }
 
