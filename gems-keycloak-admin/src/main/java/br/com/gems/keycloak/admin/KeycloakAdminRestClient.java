@@ -35,7 +35,7 @@ import org.springframework.web.client.RestClient;
  * </p>
  */
 public final class KeycloakAdminRestClient implements KeycloakAdminGateway, KeycloakUserLifecycleGateway,
-        KeycloakRealmRoleGateway {
+        KeycloakRealmRoleGateway, KeycloakRealmGroupGateway {
 
     private final RestClient client;
     private final KeycloakAdminProperties properties;
@@ -194,6 +194,45 @@ public final class KeycloakAdminRestClient implements KeycloakAdminGateway, Keyc
             throw exception;
         }
         return missing.size();
+    }
+
+    @Override
+    public Optional<RealmGroup> findRealmGroupByName( String name ) {
+        if ( name == null || name.isBlank() ) return Optional.empty();
+        var uri = queryUri( "/admin/realms/" + properties.realm() + "/groups",
+                "search=" + encode( name ) + "&exact=true&first=0&max=100" );
+        var result = authorizedGet( uri, GroupRepresentation[].class );
+        var groups = result == null ? List.<GroupRepresentation>of() : Arrays.asList( result );
+        return groups.stream().filter( group -> name.equals( group.name() ) )
+                .map( group -> new RealmGroup( group.id(), group.name() ) ).findFirst();
+    }
+
+    @Override
+    public String createRealmGroup( String name ) {
+        try {
+            return idFrom( post( "/admin/realms/{realm}/groups", Map.of( "name", name ) ) );
+        } catch ( KeycloakAdminException exception ) {
+            if ( !hasStatus( exception, 409 ) ) throw exception;
+            return findRealmGroupByName( name )
+                    .map( RealmGroup::id )
+                    .orElseThrow( () -> new KeycloakAdminException( "resolver criação concorrente de grupo" ) );
+        }
+    }
+
+    @Override
+    public boolean ensureRealmRoleOnRealmGroup( String groupId, String role ) {
+        var mappings = "/admin/realms/{realm}/groups/" + groupId + "/role-mappings/realm";
+        var effectiveRoles = getMaps( mappings + "/composite" ).stream()
+                .map( item -> String.valueOf( item.get( "name" ) ) ).collect( java.util.stream.Collectors.toSet() );
+        if ( effectiveRoles.contains( role ) ) return false;
+        var roleDocument = getMap( "/admin/realms/{realm}/roles/" + role );
+        try {
+            postNoLocation( mappings, List.of( roleDocument ) );
+            return true;
+        } catch ( KeycloakAdminException exception ) {
+            if ( hasStatus( exception, 409 ) ) return false;
+            throw exception;
+        }
     }
 
     @Override

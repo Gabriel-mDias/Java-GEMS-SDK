@@ -13,10 +13,11 @@ import org.junit.jupiter.api.Test;
 class KeycloakPublicSurfaceTest {
 
     @Test
-    void expoeOsTresTiposPublicosDoContratoDeLifecycleERoles() throws Exception {
+    void expoeOsContratosPublicosDeLifecycleRolesEGruposDeRealm() throws Exception {
         var snapshot = Class.forName( "br.com.gems.keycloak.admin.KeycloakUserSnapshot" );
         var lifecycle = Class.forName( "br.com.gems.keycloak.admin.KeycloakUserLifecycleGateway" );
         var roles = Class.forName( "br.com.gems.keycloak.admin.KeycloakRealmRoleGateway" );
+        var groups = Class.forName( "br.com.gems.keycloak.admin.KeycloakRealmGroupGateway" );
 
         assertThat( Modifier.isPublic( snapshot.getModifiers() ) ).isTrue();
         assertThat( snapshot.isRecord() ).isTrue();
@@ -24,12 +25,19 @@ class KeycloakPublicSurfaceTest {
                 String.class, boolean.class, Map.class, Set.class ) ).isNotNull();
         assertThat( Modifier.isPublic( lifecycle.getModifiers() ) ).isTrue();
         assertThat( Modifier.isPublic( roles.getModifiers() ) ).isTrue();
+        assertThat( Modifier.isPublic( groups.getModifiers() ) ).isTrue();
         assertThat( lifecycle.getMethod( "findUserById", String.class ).getReturnType() )
                 .isEqualTo( Optional.class );
         assertThat( roles.getMethod( "ensureRealmRole", String.class, String.class ).getReturnType() )
                 .isEqualTo( boolean.class );
         assertThat( roles.getMethod( "ensureCompositeRealmRole", String.class, String.class, Set.class )
                 .getReturnType() ).isEqualTo( int.class );
+        assertThat( groups.getMethod( "findRealmGroupByName", String.class ).getReturnType() )
+                .isEqualTo( Optional.class );
+        assertThat( groups.getMethod( "createRealmGroup", String.class ).getReturnType() )
+                .isEqualTo( String.class );
+        assertThat( groups.getMethod( "ensureRealmRoleOnRealmGroup", String.class, String.class )
+                .getReturnType() ).isEqualTo( boolean.class );
     }
 
     @Test

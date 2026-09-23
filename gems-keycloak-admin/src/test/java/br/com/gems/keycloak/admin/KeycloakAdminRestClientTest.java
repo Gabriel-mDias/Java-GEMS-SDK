@@ -147,6 +147,81 @@ class KeycloakAdminRestClientTest {
     }
 
     @Test
+    void buscaGrupoDeRealmPorNomeExatoSemAceitarHomônimoParcial() {
+        var groups = "http://keycloak/admin/realms/realm-de-teste/groups"
+                + "?search=OPERADOR&exact=true&first=0&max=100";
+        server.expect( once(), requestTo( groups ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( "[{\"id\":\"g2\",\"name\":\"OPERADOR_SENIOR\"},"
+                        + "{\"id\":\"g1\",\"name\":\"OPERADOR\"}]", MediaType.APPLICATION_JSON ) );
+
+        assertThat( gateway.findRealmGroupByName( "OPERADOR" ) )
+                .contains( new KeycloakRealmGroupGateway.RealmGroup( "g1", "OPERADOR" ) );
+        server.verify();
+    }
+
+    @Test
+    void nomeDeGrupoAusenteNaoConsultaOProvedor() {
+        server.reset();
+        assertThat( gateway.findRealmGroupByName( null ) ).isEmpty();
+        assertThat( gateway.findRealmGroupByName( "  " ) ).isEmpty();
+        server.verify();
+    }
+
+    @Test
+    void criaGrupoDeRealmERecuperaOExistenteQuandoHaConcorrencia() {
+        var groups = "http://keycloak/admin/realms/realm-de-teste/groups";
+        server.expect( once(), requestTo( groups ) ).andExpect( method( POST ) )
+                .andExpect( content().json( "{\"name\":\"OPERADOR\"}" ) )
+                .andRespond( withSuccess().header( "Location", groups + "/g1" ) );
+        server.expect( once(), requestTo( groups ) ).andExpect( method( POST ) )
+                .andRespond( withStatus( HttpStatus.CONFLICT ) );
+        server.expect( once(), requestTo( groups + "?search=CONSULTA&exact=true&first=0&max=100" ) )
+                .andExpect( method( GET ) )
+                .andRespond( withSuccess( "[{\"id\":\"g2\",\"name\":\"CONSULTA\"}]",
+                        MediaType.APPLICATION_JSON ) );
+
+        assertThat( gateway.createRealmGroup( "OPERADOR" ) ).isEqualTo( "g1" );
+        assertThat( gateway.createRealmGroup( "CONSULTA" ) ).isEqualTo( "g2" );
+        server.verify();
+    }
+
+    @Test
+    void conflitoSemGrupoRecuperavelPermaneceFalhaSanitizada() {
+        var groups = "http://keycloak/admin/realms/realm-de-teste/groups";
+        server.expect( once(), requestTo( groups ) ).andExpect( method( POST ) )
+                .andRespond( withStatus( HttpStatus.CONFLICT ) );
+        server.expect( once(), requestTo( groups + "?search=OPERADOR&exact=true&first=0&max=100" ) )
+                .andExpect( method( GET ) ).andRespond( withSuccess( "[]", MediaType.APPLICATION_JSON ) );
+
+        assertThatThrownBy( () -> gateway.createRealmGroup( "OPERADOR" ) )
+                .isInstanceOf( KeycloakAdminException.class )
+                .hasMessageContaining( "resolver criação concorrente de grupo" );
+        server.verify();
+    }
+
+    @Test
+    void mapeiaRealmRoleSomenteQuandoAindaNaoEhEfetivaNoGrupo() {
+        var group = "http://keycloak/admin/realms/realm-de-teste/groups/g1/role-mappings/realm";
+        var role = "http://keycloak/admin/realms/realm-de-teste/roles/PERFIL_OPERADOR";
+        server.expect( once(), requestTo( group + "/composite" ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( "[{\"id\":\"r0\",\"name\":\"ADMIN\"}]",
+                        MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( role ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( "{\"id\":\"r1\",\"name\":\"PERFIL_OPERADOR\"}",
+                        MediaType.APPLICATION_JSON ) );
+        server.expect( once(), requestTo( group ) ).andExpect( method( POST ) )
+                .andExpect( content().json( "[{\"id\":\"r1\",\"name\":\"PERFIL_OPERADOR\"}]" ) )
+                .andRespond( withSuccess() );
+        server.expect( once(), requestTo( group + "/composite" ) ).andExpect( method( GET ) )
+                .andRespond( withSuccess( "[{\"id\":\"r1\",\"name\":\"PERFIL_OPERADOR\"}]",
+                        MediaType.APPLICATION_JSON ) );
+
+        assertThat( gateway.ensureRealmRoleOnRealmGroup( "g1", "PERFIL_OPERADOR" ) ).isTrue();
+        assertThat( gateway.ensureRealmRoleOnRealmGroup( "g1", "PERFIL_OPERADOR" ) ).isFalse();
+        server.verify();
+    }
+
+    @Test
     void fazSnapshotComAtributosEGruposImutaveis() {
         var user = "http://keycloak/admin/realms/realm-de-teste/users/u1";
         server.expect( once(), requestTo( user ) ).andExpect( method( GET ) )
