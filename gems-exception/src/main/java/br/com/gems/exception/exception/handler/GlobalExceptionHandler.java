@@ -1,13 +1,11 @@
 package br.com.gems.exception.exception.handler;
 
-import br.com.gems.exception.base.BaseController;
 import br.com.gems.exception.exception.BusinessException;
 import br.com.gems.exception.exception.ConflictException;
 import br.com.gems.exception.exception.ExternalServiceException;
 import br.com.gems.exception.exception.SecurityException;
 import br.com.gems.exception.exception.dto.ExceptionResponseDTO;
 import br.com.gems.exception.exception.enums.ErrorTypeEnum;
-import br.com.gems.utils.ObjectUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -28,7 +26,8 @@ import java.util.UUID;
  * <b>Política de mensagem nos erros de requisição (404 e 400 de parâmetro):</b> a resposta não
  * ecoa o caminho pedido nem o valor recebido. Repetir o caminho num 404 devolve ao cliente o que ele
  * mesmo digitou e vira vetor de reflexão; repetir o valor num 400 faz o mesmo com o conteúdo do
- * parâmetro. O que é útil ao cliente — o <b>nome</b> do parâmetro errado — vai; o resto fica no log.
+ * parâmetro. O que é útil ao cliente — o <b>nome</b> do parâmetro errado — vai. Logs não incluem
+ * caminho, corpo, mensagem ou causa recebidos do cliente/provedor.
  * </p>
  * <p>
  * {@code path} é {@code request.getRequestURI()} em todos os handlers: {@code getServletPath()}
@@ -49,7 +48,7 @@ public class GlobalExceptionHandler {
                 .method( request.getMethod() )
                 .build();
 
-        logError( error, request, ex );
+        logError( error, ex );
         return error;
     }
 
@@ -64,7 +63,7 @@ public class GlobalExceptionHandler {
                 .method( request.getMethod() )
                 .build();
 
-        logFalhaOrAlerta( error, request );
+        logFalhaOrAlerta( error );
         return error;
     }
 
@@ -77,7 +76,7 @@ public class GlobalExceptionHandler {
     public ExceptionResponseDTO handleConflictException( ConflictException ex, HttpServletRequest request ) {
         var error = envelopeDeNegocio( ex, request );
 
-        logFalhaOrAlerta( error, request );
+        logFalhaOrAlerta( error );
         return error;
     }
 
@@ -86,7 +85,7 @@ public class GlobalExceptionHandler {
     public ExceptionResponseDTO handleException( BusinessException ex, HttpServletRequest request ) {
         var error = envelopeDeNegocio( ex, request );
 
-        logFalhaOrAlerta( error, request );
+        logFalhaOrAlerta( error );
         return error;
     }
 
@@ -112,7 +111,7 @@ public class GlobalExceptionHandler {
                 .method( request.getMethod() )
                 .build();
 
-        logFalhaOrAlerta( error, request );
+        logFalhaOrAlerta( error );
         return error;
     }
 
@@ -133,13 +132,13 @@ public class GlobalExceptionHandler {
                 .method( request.getMethod() )
                 .build();
 
-        logFalhaOrAlerta( error, request );
+        logFalhaOrAlerta( error );
         return error;
     }
 
     /**
      * Endereço não mapeado — 404, e não o 500 do catch-all. Mensagem fixa: o caminho pedido fica
-     * no {@code path} do envelope e no log, não na mensagem (política no Javadoc da classe).
+     * no {@code path} do envelope, não na mensagem nem no log (política no Javadoc da classe).
      */
     @ExceptionHandler( NoResourceFoundException.class )
     @ResponseStatus( HttpStatus.NOT_FOUND )
@@ -154,13 +153,13 @@ public class GlobalExceptionHandler {
                 .method( request.getMethod() )
                 .build();
 
-        logFalhaOrAlerta( error, request );
+        logFalhaOrAlerta( error );
         return error;
     }
 
     /**
-     * Serviço fora do processo indisponível. A mensagem do cliente não nomeia o serviço —
-     * quem falhou é problema de operação, e vai para o log.
+     * Serviço fora do processo indisponível. A mensagem do cliente não nomeia o serviço;
+     * o log registra apenas o tipo da exceção, sem conteúdo do provedor.
      */
     @ExceptionHandler( ExternalServiceException.class )
     @ResponseStatus( HttpStatus.BAD_GATEWAY )
@@ -174,7 +173,7 @@ public class GlobalExceptionHandler {
                 .method( request.getMethod() )
                 .build();
 
-        log.error( "Servico externo indisponivel: {} - {}", ex.getServico(), error, ex );
+        log.error( "Servico externo indisponivel: tipo={}", ex.getClass().getSimpleName() );
         return error;
     }
 
@@ -189,7 +188,7 @@ public class GlobalExceptionHandler {
                 .method( request.getMethod() )
                 .build();
 
-        logFalhaOrAlerta( error, request );
+        logFalhaOrAlerta( error );
         return error;
     }
 
@@ -206,23 +205,16 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
-    private void logError( ExceptionResponseDTO error, HttpServletRequest request, Exception exception ) {
+    private void logError( ExceptionResponseDTO error, Exception exception ) {
         var code = UUID.randomUUID();
-        var logMessage = "ERROR: " + code.toString();
         var responseMessage = "Entre em contato com o administrador com o seguinte código: " + code.toString();
 
-        log.error( logMessage, exception );
+        log.error( "Erro HTTP inesperado: codigo={}, tipo={}", code, exception.getClass().getSimpleName() );
         error.setMessage( responseMessage );
     }
 
-    private void logFalhaOrAlerta( ExceptionResponseDTO error, HttpServletRequest request ) {
-        log.error( error.toString(), this.getBodyRequest( request ) );
-    }
-
-    private Object getBodyRequest( HttpServletRequest request ) {
-        var body = request.getAttribute( BaseController.REQUEST_BODY_ATTRIBUTE );
-        // BUGFIX: Return body instead of string when body exists.
-        return ObjectUtil.isNullOrEmpty( body ) ? "The request not informed a body" : body;
+    private void logFalhaOrAlerta( ExceptionResponseDTO error ) {
+        log.warn( "Erro HTTP tratado: tipo={}", error.getErrorType() );
     }
 
 }
