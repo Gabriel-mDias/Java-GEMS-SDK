@@ -1,9 +1,7 @@
 package br.com.gems.exception.exception.handler;
 
-import br.com.gems.exception.base.BaseController;
 import br.com.gems.exception.exception.dto.ExceptionResponseDTO;
 import br.com.gems.exception.exception.enums.ErrorTypeEnum;
-import br.com.gems.utils.ObjectUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -42,17 +40,8 @@ public class SecurityExceptionHandler {
                 .method( request.getMethod() )
                 .build();
 
-        logFalhaOrAlerta( error, request );
+        log.warn( "Falha de autenticacao HTTP." );
         return error;
-    }
-
-    private void logFalhaOrAlerta( ExceptionResponseDTO error, HttpServletRequest request ) {
-        log.error( error.toString(), this.getBodyRequest( request ) );
-    }
-
-    private Object getBodyRequest( HttpServletRequest request ) {
-        var body = request.getAttribute( BaseController.REQUEST_BODY_ATTRIBUTE );
-        return ObjectUtil.isNullOrEmpty( body ) ? "The request not informed a body" : body;
     }
 
 }
