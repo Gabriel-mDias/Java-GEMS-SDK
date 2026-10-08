@@ -6,7 +6,7 @@
     <parent>
         <groupId>br.com.gems</groupId>
         <artifactId>gems-sdk</artifactId>
-        <version>3.3.1</version>
+        <version>3.4.0</version>
     </parent>
 
     <artifactId>gems-jpa-multi-tenant</artifactId>
@@ -33,6 +33,9 @@
             <groupId>org.liquibase</groupId>
             <artifactId>liquibase-core</artifactId>
         </dependency>
+        <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>postgresql</artifactId><version>${testcontainers.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>junit-jupiter</artifactId><version>${testcontainers.version}</version><scope>test</scope></dependency>
     </dependencies>
 
     <!-- Submete-se ao piso de observabilidade declarado no pom do reator (FR-017). -->

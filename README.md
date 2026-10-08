@@ -435,3 +435,12 @@ Utilize o comando oficial do plugin do Maven na raiz do projeto (onde fica o `Ja
 mvn versions:set -DnewVersion=<NOVA_VERSAO> -DgenerateBackupPoms=false
 ```
 Esse comando irá sincronizar simultaneamente a versão em todos os arquivos de configuração do SDK, mantendo a integridade da arquitetura de múltiplos módulos de forma perfeita.
+# Candidato 3.4.0 — Firebase Auth
+
+O novo módulo independente `gems-firebase-auth` integra identidade Firebase, ações locais JDBC opt-in
+e lifecycle durável. Bootstrap JPA/modelo e aliases estritos são aditivos e opt-in.
+Ports administrativos tipados, snapshots me/context, delegação do ator recalculada em SQL e eventos
+identificados evitam duplicação no consumidor. REVOKE permanece barreira antes de ENABLE; filas têm
+backoff/lease/CAS e scanner/catálogo são obrigatórios no opt-in.
+Veja [configuração, migrations e gates](docs/FIREBASE-AUTH.md) e [notas da candidata](docs/RELEASE-NOTES-3.4.0.md).
+Publicação e prova de consumidor remoto aguardam review independente.

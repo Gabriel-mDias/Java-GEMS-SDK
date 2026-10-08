@@ -44,6 +44,22 @@ jobs:
         # Barreira de qualidade: nada é publicado se os testes falharem.
         run: mvn --batch-mode --errors clean verify -DgenerateBackupPoms=false
 
+      - name: Configurar Node para gate Auth Emulator
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.16.0'
+
+      - name: Preparar npm e Firebase CLI locais fixadas
+        run: |
+          npm install --prefix "$RUNNER_TEMP/gems-npm" --no-audit --no-fund --ignore-scripts --save-exact npm@11.17.0
+          echo "$RUNNER_TEMP/gems-npm/node_modules/.bin" >> "$GITHUB_PATH"
+          node "$RUNNER_TEMP/gems-npm/node_modules/npm/bin/npm-cli.js" install --prefix "$RUNNER_TEMP/gems-firebase-cli" --no-audit --no-fund --ignore-scripts --save-exact firebase-tools@15.32.1
+          echo "GEMS_FIREBASE_CLI_JS=$RUNNER_TEMP/gems-firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js" >> "$GITHUB_ENV"
+
+      - name: Auth Emulator demo-gems
+        shell: pwsh
+        run: ./scripts/verify-firebase-auth.ps1
+
       - name: Sucesso
         if: success()
         run: echo "::notice title=Validação concluída::A main está verde; nenhum artefato foi publicado."

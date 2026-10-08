@@ -1,5 +1,16 @@
 # CLAUDE.md
 
+## Candidato 3.4.0
+
+`gems-firebase-auth` é independente e opt-in por `gems.firebase.auth.enabled`; JDBC é opt-in separado
+por `jdbc-enabled`. Leia `docs/FIREBASE-AUTH.md` para migrations explícitas, manager nomeado, lifecycle,
+outbox e gates RSA/PostgreSQL/Auth Emulator. O consumidor declara a SecurityFilterChain.
+JPA bootstrap/modelo e alias estrito são aditivos; naming/sanitizer legados não mudam.
+Catálogo obrigatório em opt-in; ports administrativos tipados e snapshots me/context evitam SQL duplicado.
+Ator de backend é recalculado no SQL para delegação; identidade/global exigem ações centrais concretas.
+REVOKE não é superseded por ENABLE; filas persistem backoff/lease/CAS. Edits durante provisioning são recusados.
+`gems.tenant.liquibase.startup-enabled` tem default true. Candidata não publicada, aguardando review.
+
 ## Release 3.3.0
 
 3.3.0 e uma evolucao MINOR aditiva: `KeycloakRealmGroupGateway` cobre grupos de primeiro nivel do

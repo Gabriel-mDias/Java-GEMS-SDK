@@ -1,0 +1,4 @@
+br.com.gems.firebase.auth.config.FirebaseAuthAutoConfiguration
+br.com.gems.firebase.auth.config.FirebaseJdbcAutoConfiguration
+br.com.gems.firebase.auth.config.FirebaseServletAutoConfiguration
+br.com.gems.firebase.auth.config.FirebaseAuthorizationMvcAutoConfiguration

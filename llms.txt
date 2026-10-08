@@ -1114,3 +1114,19 @@ gems:
   observability:
     enabled: true
 ```
+Candidate 3.4.0: gems-firebase-auth is an independent opt-in Firebase identity/action authorization module.
+Canonical properties: gems.firebase.auth.enabled/project-id/check-revoked/tenant-header/jdbc-enabled.
+Read docs/FIREBASE-AUTH.md before integrating; security migrations are explicit, the consumer owns the
+stateless SecurityFilterChain, and JDBC uses firebaseSecurityTransactionManager separately from JPA.
+Typed UserAdministration/TenantAdministration/GrantAdministration/SecurityAdministrationReader ports
+provide find/list and immutable AdministrationViews; Resolution.me/tenantContext includes tenant names,
+profiles and groups. AuthorizationCatalog is mandatory even with custom resolver/no DataSource.
+Trusted backend SecurityActorProvider is rechecked against SQL for direct/indirect delegation;
+global editing requires concrete central actions. TenantAdministratorBootstrap is explicit/audited.
+REVOKE cannot be superseded by ENABLE; identity/outbox queues have Clock-based backoff and lease/CAS.
+During PASSWORD_PROVISIONING edits fail with ACCOUNT_PROVISIONING_IN_PROGRESS for UID-idempotent recovery.
+Docker emulator service DNS requires demo project, explicit matching host/env, local/test/ci/demo profiles.
+Default audit publisher logs sanitized structured identifiers and refusal correlation IDs.
+JPA bootstrap: gems.tenant.validation-schema; strict ASCII aliases: gems.tenant.strict-alias;
+gems.tenant.liquibase.startup-enabled defaults true. Legacy APIs/naming remain available.
+Never publish/use the candidate in the sample before independent review and remote consumer proof.
