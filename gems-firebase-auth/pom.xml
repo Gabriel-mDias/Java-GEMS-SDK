@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent><groupId>br.com.gems</groupId><artifactId>gems-sdk</artifactId><version>3.4.0</version></parent>
+    <artifactId>gems-firebase-auth</artifactId>
+    <name>GEMS Firebase Auth</name>
+    <description>Identidade Firebase encapsulada e autorização SQL por ação concreta.</description>
+    <dependencies>
+        <dependency><groupId>br.com.gems</groupId><artifactId>gems-security-authorization</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>com.google.firebase</groupId><artifactId>firebase-admin</artifactId><version>${firebase-admin.version}</version></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId></dependency>
+        <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.liquibase</groupId><artifactId>liquibase-core</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>postgresql</artifactId><version>${testcontainers.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>org.testcontainers</groupId><artifactId>junit-jupiter</artifactId><version>${testcontainers.version}</version><scope>test</scope></dependency>
+        <dependency><groupId>org.bouncycastle</groupId><artifactId>bcpkix-jdk18on</artifactId><version>${bouncycastle.version}</version><scope>test</scope></dependency>
+    </dependencies>
+    <build><plugins>
+        <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-enforcer-plugin</artifactId>
+            <executions><execution><id>firebase-isolation</id><goals><goal>enforce</goal></goals>
+                <configuration><rules><bannedDependencies><searchTransitive>true</searchTransitive><excludes>
+                    <exclude>br.com.gems:gems-keycloak-admin</exclude><exclude>org.keycloak:*</exclude>
+                    <exclude>br.com.gems:gems-jpa*</exclude><exclude>br.com.gems:gems-observability</exclude>
+                    <exclude>br.com.gems:gems-aws*</exclude><exclude>software.amazon.awssdk:*</exclude>
+                </excludes></bannedDependencies></rules></configuration>
+            </execution></executions>
+        </plugin>
+    </plugins></build>
+    <profiles><profile><id>firebase-emulator</id><build><plugins>
+        <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
+            <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+            <configuration><includes><include>**/FirebaseEmulatorIT.java</include></includes><failIfNoTests>true</failIfNoTests></configuration>
+        </plugin>
+    </plugins></build></profile></profiles>
+</project>

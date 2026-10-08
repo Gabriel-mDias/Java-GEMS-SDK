@@ -69,15 +69,20 @@ public class SchemaMultiTenantConnectionProvider implements MultiTenantConnectio
      */
     @Override
     public Connection getConnection(String tenantIdentifier) throws SQLException {
-        Connection connection = getAnyConnection();
-        schemaOriginal.put(connection, connection.getSchema());
-
         String schema = JpaTenantContext.GLOBAL_TENANT_IDENTIFIER.equals(tenantIdentifier)
                 ? naming.globalSchema()
                 : naming.schemaFor(tenantIdentifier);
 
-        connection.setSchema(schema);
-        return connection;
+        Connection connection = getAnyConnection();
+        try {
+            schemaOriginal.put(connection, connection.getSchema());
+            connection.setSchema(schema);
+            return connection;
+        } catch (SQLException | RuntimeException failure) {
+            schemaOriginal.remove(connection);
+            releaseAnyConnection(connection);
+            throw failure;
+        }
     }
 
     @Override
